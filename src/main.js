@@ -110,7 +110,9 @@ loop.addAlways((dt, raw) => {
   // menu idle orbit
   if (!G.running && !G.level) rig.yaw += raw * 0.04;
   env.update(G.time.hour, rig.target.x, rig.target.z);
-  FX.update(raw * (G.time.paused ? 1 : G.time.speed || 1), rig.camera);
+  // FX clamps dt internally at 0.05 — sub-step so fast-forward stays in sync
+  let fxDt = raw * (G.time.paused ? 1 : G.time.speed || 1);
+  while (fxDt > 0) { FX.update(Math.min(fxDt, 0.05), rig.camera); fxDt -= 0.05; }
   if (G.level) { hud.update(); minimap.update(); }
 });
 

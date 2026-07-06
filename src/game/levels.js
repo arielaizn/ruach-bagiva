@@ -254,12 +254,20 @@ export class LevelRunner {
   load(level, opts = {}) {
     // purge previous world meshes from the scene
     for (const arr of [G.units, G.flock, G.hostiles]) {
-      for (const e of arr) { if (e.mesh) G.scene.remove(e.mesh); FX.unring?.(e); }
+      for (const e of arr) { e.alive = false; if (e.mesh) G.scene.remove(e.mesh); FX.unring?.(e); }
     }
-    for (const b of G.buildings) { if (b.mesh) G.scene.remove(b.mesh); if (b.lightObj) b.mesh?.remove(b.lightObj); }
+    for (const b of G.buildings) {
+      b.alive = false;
+      for (const hnd of b.fxHandles ?? []) FX.detach(hnd);
+      if (b.mesh) G.scene.remove(b.mesh);
+    }
     if (G.director) { for (const p of G.director.props) G.scene.remove(p.mesh); }
     if (G.flagpole) { G.scene.remove(G.flagpole); G.flagpole = null; }
     if (G.placement?.ghost) G.scene.remove(G.placement.ghost);
+    // weather / lingering ambience reset
+    FX.weather(null);
+    G.env?.setDim(0);
+    G.input?.groups?.clear();
     resetState();
     this.level = level;
     this.opts = opts;
@@ -387,12 +395,18 @@ export class LevelRunner {
     for (const o of this.objState) {
       if (!o.done) {
         const { done, progress } = this._check(o);
+        if (Math.floor((o.progress ?? 0) * 100) !== Math.floor(progress * 100)) this._objDirty = true;
         o.progress = progress;
         if (done) { o.done = true; G.events.emit('objective-done', o); }
       }
       if (!o.done) allDone = false;
     }
-    if (this._objDirty) { this._objDirty = false; G.events.emit('objective-progress', this.objState); }
+    this._objEmitT = (this._objEmitT ?? 0) - dt;
+    if (this._objDirty && this._objEmitT <= 0) {
+      this._objDirty = false;
+      this._objEmitT = 1;
+      G.events.emit('objective-progress', this.objState);
+    }
 
     // win: all objectives + no live hostiles + no pending wave
     if (allDone && this.level.id !== 'free') {
@@ -440,7 +454,10 @@ export class LevelRunner {
       }
       case 'res': return { done: G.res[o.res] >= o.amount, progress: G.res[o.res] / o.amount };
       case 'pop': return { done: G.units.filter(u => u.kind === 'settler' && u.alive).length >= o.count, progress: G.units.filter(u => u.kind === 'settler' && u.alive).length / o.count };
-      case 'dogs': return { done: G.units.filter(u => u.kind === 'dog' && u.alive).length >= o.count, progress: G.units.filter(u => u.kind === 'dog').length / o.count };
+      case 'dogs': {
+        const n = G.units.filter(u => u.kind === 'dog' && u.alive).length;
+        return { done: n >= o.count, progress: n / o.count };
+      }
       case 'flock': case 'flockEnd': {
         const n = G.flock.filter(s => s.alive).length;
         const others = this.objState.filter(x => x !== o);
@@ -450,8 +467,12 @@ export class LevelRunner {
       case 'waves': return { done: this.wavesSurvived >= o.count, progress: this.wavesSurvived / o.count };
       case 'junction': return { done: this.junctionTrips >= o.count, progress: this.junctionTrips / o.count };
       case 'kumzitz': return { done: this.kumzitzim >= (o.count ?? 1), progress: this.kumzitzim / (o.count ?? 1) };
-      case 'day': return { done: G.time.day >= o.day, progress: G.time.day / o.day };
-      case 'demolition': return { done: !!G.flags.demolitionOutcome && G.flags.demolitionOutcome !== 'demolished' && G.flags.demolitionOutcome !== 'destroyed', progress: G.flags.demolitionOutcome ? 1 : 0 };
+      case 'day': return { done: G.time.day >= o.day || (G.time.isShabbat && G.time.day >= o.day - 1), progress: G.time.day / o.day };
+      case 'demolition': {
+        const out = G.flags.demolitionOutcome;
+        if (out === 'demolished' || out === 'destroyed') { this.fail('lose_order'); return { done: false, progress: 1 }; }
+        return { done: !!out, progress: out ? 1 : 0 };
+      }
       case 'spiritEnd': {
         const others = this.objState.filter(x => x !== o);
         return { done: others.every(x => x.done) && G.spirit >= o.amount, progress: G.spirit / o.amount };

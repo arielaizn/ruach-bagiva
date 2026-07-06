@@ -109,8 +109,11 @@ function los(terrain, a, b) {
     hPrev = hCur;
     if (x0 === x1 && z0 === z1) return true;
     const e2 = 2 * err;
-    if (e2 > -dz) { err -= dz; x0 += sx; }
-    if (e2 < dx) { err += dx; z0 += sz; }
+    const stepX = e2 > -dz, stepZ = e2 < dx;
+    // diagonal step: forbid corner cutting (both orthogonal cells must be open)
+    if (stepX && stepZ && (!terrain.walkable(x0 + sx, z0) || !terrain.walkable(x0, z0 + sz))) return false;
+    if (stepX) { err -= dz; x0 += sx; }
+    if (stepZ) { err += dx; z0 += sz; }
   }
 }
 

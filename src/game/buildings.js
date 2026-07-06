@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { G, addRes, spend, canAfford } from '../core/state.js';
 import { BALANCE } from './balance.js';
 import { createModel } from './models.js';
+import { disposeModel } from './model-helpers.js';
 import { FX } from '../engine/fx.js';
 import { AudioSys } from '../audio.js';
 import { nextId, dist2d, clamp } from '../core/util.js';
@@ -95,6 +96,7 @@ export class Building {
   finish(silent = false) {
     this.state = 'done';
     G.scene.remove(this.mesh);
+    disposeModel(this.mesh);
     this.mesh = createModel(this.typeId);
     // face roughly toward camp center for charm
     this.faceRot = Math.atan2((G.basePos?.x ?? 0) - this.pos.x, (G.basePos?.z ?? 0) - this.pos.z);
@@ -228,6 +230,10 @@ export function recomputeCaps() {
   }
   G.caps = caps;
   G.pop.max = popMax;
+  // losing storage clamps stock immediately (visible, attributable)
+  for (const k of ['wood', 'stone', 'food', 'water']) {
+    if (G.res[k] > caps[k]) G.res[k] = caps[k];
+  }
   G.events.emit('pop-changed', G.pop);
   G.events.emit('res-changed', {});
 }
@@ -291,12 +297,18 @@ export function initPlacementActions() {
     const b = new Building(p.typeId, p.cx, p.cz);
     AudioSys.play('build_place');
     FX.burst('dust', b.pos);
-    // send nearest idle/builder settlers
-    const builders = G.units
-      .filter(u => u.kind === 'settler' && u.alive && (u.job === 'build' || u.job === 'idle'))
+    // send nearest idle/builder settlers; if everyone is employed, pull a worker
+    let builders = G.units
+      .filter(u => u.kind === 'settler' && u.alive && !u.fallen && (u.job === 'build' || u.job === 'idle'))
       .sort((a, c) => a.pos.distanceTo(b.pos) - c.pos.distanceTo(b.pos))
       .slice(0, 2);
-    for (const u of builders) { u.job = 'build'; u.workTarget = b; u.state = 'goto-work'; }
+    if (!builders.length) {
+      builders = G.units
+        .filter(u => u.kind === 'settler' && u.alive && !u.fallen && !['guard', 'shepherd'].includes(u.job))
+        .sort((a, c) => a.pos.distanceTo(b.pos) - c.pos.distanceTo(b.pos))
+        .slice(0, 1);
+    }
+    for (const u of builders) { if (u.job !== 'build') u._returnJob = u.job; u.setJob('build'); u.workTarget = b; }
     if (keep && (p.def.fence || canAfford(p.def.cost))) {
       G.actions.movePlacement(b.pos.x, b.pos.z);
     } else {
@@ -312,14 +324,21 @@ export function initPlacementActions() {
 
   G.actions.dismantle = (b) => {
     if (b?.kind === 'building' && b.alive) {
-      b.dismantle();
+      // dismantling the demolition-order target counts as resolving the order
+      const d = G.director?.demolition;
+      if (d && d.building === b && (d.state === 'active' || d.state === 'arriving')) {
+        if (d.state === 'arriving') d.state = 'active'; // allow early resolution
+        G.director.resolveDemolitionDismantle();
+      } else {
+        b.dismantle();
+      }
       G.actions.select(G.selection.filter(e => e !== b));
     }
   };
 }
 
 function cancelGhost() {
-  if (G.placement?.ghost) G.scene.remove(G.placement.ghost);
+  if (G.placement?.ghost) { G.scene.remove(G.placement.ghost); disposeModel(G.placement.ghost); }
   G.placement = null;
 }
 

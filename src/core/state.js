@@ -76,6 +76,11 @@ export function spiritMul() {
 }
 
 // ---------- time ----------
+// Shabbat runs candle-lighting to havdalah: Friday (day%7==6) 19:00 -> "day 7" 20:00.
+function shabbatNow(day, hour) {
+  return (day % 7 === 6 && hour >= 19) || (day % 7 === 0 && hour < 20);
+}
+
 export function tickTime(dt) {
   const t = G.time;
   t.t += dt;
@@ -85,11 +90,11 @@ export function tickTime(dt) {
   if (t.hour >= 24) {
     t.hour -= 24;
     t.day += 1;
-    t.isShabbat = t.day % 7 === 0;
     G.events.emit('day-start', { day: t.day });
-    if (t.isShabbat) G.events.emit('shabbat-start', {});
-    else if ((t.day - 1) % 7 === 0 && t.day > 1) G.events.emit('shabbat-end', {});
   }
+  const shab = shabbatNow(t.day, t.hour);
+  if (shab && !t.isShabbat) { t.isShabbat = true; G.events.emit('shabbat-start', {}); }
+  if (!shab && t.isShabbat) { t.isShabbat = false; G.events.emit('shabbat-end', {}); }
   const nightNow = t.hour >= 19 || t.hour < 5;
   if (nightNow && !t.isNight) { t.isNight = true; G.events.emit('night-start', {}); }
   if (!nightNow && t.isNight) { t.isNight = false; G.events.emit('night-end', {}); }

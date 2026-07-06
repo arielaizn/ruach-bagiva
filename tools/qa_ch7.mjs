@@ -110,8 +110,18 @@ while (Date.now() - t0 < HARD_STOP_MS) {
     if (!danger && !G.time.isShabbat && h >= 18 && h <= 20.5 && G.res.wood > 20 && G.spirit < 90) {
       if (G.actions.kumzitz()) acts.push('kumzitz');
     }
-    // housing: build tents until pop cap >= 13
-    if (!danger && !G.placement && G.pop.max < 13 && G.res.wood >= 40) {
+    // ensure sites get built: keep up to 2 builders while sites exist
+    const sites = G.buildings.filter(b => b.state === 'site');
+    if (sites.length) {
+      const builders = G.units.filter(u => u.kind === 'settler' && u.job === 'build');
+      if (builders.length < 2) {
+        const cands = G.units.filter(u => u.kind === 'settler' && u.alive !== false && (u.job === 'wood' || u.job === 'farm' || u.job === 'idle' || !u.job) && u.job !== 'build');
+        for (const u of cands.slice(0, 2 - builders.length)) { u.setJob('build'); acts.push('builder:' + u.name); }
+      }
+    }
+    // housing: build tents until pop cap (incl. pending tent sites) >= 13
+    const pendingTentPop = G.buildings.filter(b => b.state === 'site' && b.typeId === 'tent').length;
+    if (!danger && !G.placement && G.pop.max + pendingTentPop < 13 && G.res.wood >= 40) {
       const ok = window.__qaPlace('tent');
       acts.push('tent:' + ok);
     }
@@ -132,7 +142,7 @@ while (Date.now() - t0 < HARD_STOP_MS) {
     // keep unemployed settlers (new hitchhikers) working
     for (const u of G.units) {
       if (u.kind === 'settler' && (u.job === 'idle' || !u.job) && u.state !== 'ordered-move' && u.alive !== false) {
-        u.setJob(G.res.food < 100 ? 'farm' : 'wood'); acts.push('hire:' + u.name);
+        u.setJob(sites.length ? 'build' : (G.res.food < 100 ? 'farm' : 'wood')); acts.push('hire:' + u.name);
       }
     }
     G.actions.setSpeed(3);

@@ -3,7 +3,7 @@
 import { LIFE_BUILDERS } from './models-life.js';
 import { STRUCTURE_BUILDERS } from './models-structures.js';
 
-const BUILDERS = { ...LIFE_BUILDERS, ...STRUCTURE_BUILDERS };
+const BUILDERS = { ...STRUCTURE_BUILDERS, ...LIFE_BUILDERS }; // life __fallback wins (animatable)
 
 // createModel(type, opts) -> THREE.Group, origin at ground center, +Z forward.
 // group.userData.anim may hold {legs:[], arms:[], head, tail, flag, door, ...}.

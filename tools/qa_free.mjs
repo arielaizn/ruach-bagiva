@@ -1,5 +1,5 @@
-// QA: FREE PLAY ("הגבעה שלי") — ~12 game-days, economy build-up, endless waves,
-// day-9 big raid, hitchhikers, no wrong lose-state.
+// QA free-play run: ~12 game-days on "הגבעה שלי" (normal difficulty).
+// Verifies endless scheduler, hitchhikers, no wrong lose-state.
 import { chromium } from 'playwright-core';
 
 const SHOTDIR = '/private/tmp/claude-501/-Users-a1234/4da2bcb5-53e1-4c27-be92-8ef49b1058a2/scratchpad';
@@ -15,13 +15,9 @@ page.on('pageerror', (e) => logs.push(`[PAGEERROR] ${e.message} :: ${(e.stack ||
 
 await page.goto('http://localhost:8123/index.html', { waitUntil: 'load' });
 await page.waitForTimeout(2200);
-await page.evaluate(() => {
-  localStorage.setItem('ruach-bagiva-save-v1', JSON.stringify({ unlockedChapter: 7, completed: ['ch1', 'ch2'], settings: { master: 0, music: 0, sfx: 0, edgePan: true, quality: 'high' } }));
-});
+await page.evaluate(() => localStorage.setItem('ruach-bagiva-save-v1', JSON.stringify({ unlockedChapter: 7, completed: ['ch1', 'ch2'], settings: { master: 0, music: 0, sfx: 0, edgePan: true, quality: 'high' } })));
 await page.reload({ waitUntil: 'load' });
 await page.waitForTimeout(2200);
-
-// main menu -> הגבעה שלי -> שחק (normal difficulty, demolition on) -> התחל
 await page.click('text=הגבעה שלי');
 await page.waitForTimeout(400);
 await page.click('text=שחק');
@@ -29,16 +25,14 @@ await page.waitForTimeout(400);
 await page.click('text=התחל');
 await page.waitForTimeout(2000);
 
-// install in-page QA recorder
+// instrument events
 await page.evaluate(() => {
   const G = window.__G;
-  window.__QA = { events: [], err: [] };
-  const rec = (ev) => G.events.on(ev, (p) => window.__QA.events.push({
-    day: G.time.day, hour: +G.time.hour.toFixed(1), ev,
-    p: p?.textKey ?? p?.reasonKey ?? (ev === 'pop-changed' ? `${p?.cur}/${p?.max}` : (p?.budget != null ? 'budget=' + p.budget : '')),
-  }));
-  ['alert', 'raid-warning', 'raid-end', 'level-lost', 'level-won', 'pop-changed', 'objective-done', 'weather', 'structure-destroyed'].forEach(rec);
-  G.actions.setSpeed(3);
+  window.__QA = { events: [] };
+  const tag = (name) => (p) => window.__QA.events.push({ name, day: G.time.day, hour: +G.time.hour.toFixed(1), info: p?.textKey ?? p?.reasonKey ?? p?.budget ?? (p?.cur !== undefined ? `${p.cur}/${p.max}` : '') });
+  for (const ev of ['alert', 'raid-warning', 'raid-end', 'level-lost', 'level-won', 'pop-changed', 'objective-done', 'demolition-served', 'demolition-resolved', 'weather']) {
+    G.events.on(ev, tag(ev));
+  }
 });
 
 const state = () => page.evaluate(() => {
@@ -46,132 +40,151 @@ const state = () => page.evaluate(() => {
   return {
     day: G.time.day, hour: +G.time.hour.toFixed(1), shabbat: G.time.isShabbat,
     res: Object.fromEntries(Object.entries(G.res).map(([k, v]) => [k, Math.round(v * 10) / 10])),
-    caps: G.caps, pop: `${G.pop.cur}/${G.pop.max}`, spirit: Math.round(G.spirit),
-    units: G.units.map(u => `${u.kind}:${u.job ?? u.state ?? ''}${u.fallen ? ':INJ' : ''}`).join(','),
-    upos: G.units.filter(u => u.kind === 'settler').map(u => `${u.name}@${u.pos.x.toFixed(1)},${u.pos.z.toFixed(1)}:${u.state}:${u.job ?? '-'}`),
+    spirit: Math.round(G.spirit), pop: `${G.pop.cur}/${G.pop.max}`,
+    units: G.units.map(u => `${u.kind === 'settler' ? (u.job ?? 'idle') : u.kind}${u.fallen ? ':INJ' : ''}`).join(','),
+    positions: G.units.map(u => `${Math.round(u.pos.x)},${Math.round(u.pos.z)}`).join('|'),
     flock: G.flock.filter(s => s.alive).length,
-    hostiles: G.hostiles.map(h => `${h.type}:${h.state}`).join(','),
+    hostiles: G.hostiles.filter(h => h.alive).map(h => `${h.type}:${h.state}`).join(','),
     buildings: G.buildings.map(b => `${b.typeId}:${b.state}`).join(','),
-    objectives: (G.objectives ?? []).map(o => `${o.id}:${(o.progress * 100 | 0)}%${o.done ? ':DONE' : ''}`).join(','),
-    pending: G.director.pendingWaves.map(w => `b${w.budget}@${Math.round(w.atT - G.time.t)}s${w.warned ? ':warned' : ''}`).join(','),
-    bell: !!G.flags.bell, waves: G.runner?.wavesSurvived,
+    objectives: (G.objectives ?? []).map(o => `${o.id}:${Math.round((o.progress ?? 0) * 100)}%${o.done ? ':DONE' : ''}`).join(','),
+    pendingWaves: G.director.pendingWaves.map(w => `b${w.budget}@t${Math.round(w.atT - G.time.t)}s`).join(','),
+    waves: G.runner?.wavesSurvived, bell: !!G.flags.bell,
     lost: !!G.runner?.lost, won: !!G.runner?.won,
-    qa: window.__QA.events.splice(0),
+    fp: { lastDay: G.director._fpLastDay, bigN: G.director._fpBigN },
+    hitchT: Math.round(G.director.hitchhikerT),
   };
 });
 
-// one controller tick: bell, kumzitz, build queue, jobs, purchases
-const control = () => page.evaluate(() => {
+// ---- initial economy setup
+const setup = await page.evaluate(() => {
   const G = window.__G;
+  const base = G.basePos ?? { x: 0, z: 0 };
   const out = [];
-  if (G.time.paused || !G.running) return ['not-running'];
-  if (G.time.speed !== 3) { G.actions.setSpeed(3); out.push('respeed'); }
+  const place = (type) => {
+    G.actions.startPlacement(type);
+    for (let r = 5; r < 30; r += 1.5) {
+      for (let a = 0; a < 20; a++) {
+        const x = base.x + Math.cos(a / 20 * Math.PI * 2) * r;
+        const z = base.z + Math.sin(a / 20 * Math.PI * 2) * r;
+        G.actions.movePlacement(x, z);
+        if (G.placement?.valid) { G.actions.confirmPlacement(false); return true; }
+      }
+    }
+    G.actions.cancelPlacement();
+    return false;
+  };
+  for (const type of ['veg_patch', 'sheep_pen']) out.push(`${type}:${place(type)}`);
+  // jobs: keep the shepherd; others -> wood, water, build
+  const settlers = G.units.filter(u => u.kind === 'settler');
+  const free = settlers.filter(s => s.job !== 'shepherd');
+  const jobs = ['wood', 'water', 'build'];
+  free.forEach((s, i) => s.setJob(jobs[i % jobs.length]));
+  G.actions.setSpeed(3);
+  return out.join(',') + ' | jobs:' + settlers.map(s => s.job).join(',');
+});
+console.log('SETUP:', setup);
+console.log('T0:', JSON.stringify(await state()));
 
-  // --- bell: on when a warned wave is pending or hostiles alive; off otherwise
-  const danger = G.hostiles.some(h => h.alive) || G.director.pendingWaves.some(w => w.warned);
-  if (danger !== !!G.flags.bell) { G.actions.toggleBell(); out.push('bell->' + danger); }
+let lastDayLogged = 0;
+const stuckMap = new Map();
+const stuckReports = [];
+let doneReason = 'hard-stop';
+const kumzitzDays = new Set();
+let towerBuilt = false, kennelBuilt = false, tent3 = false, pergBuilt = false;
 
-  // --- kumzitz once a day in the evening, when calm
-  window.__QA.kumDay ??= 0;
-  if (!danger && !G.time.isShabbat && G.time.hour >= 18.5 && G.time.hour <= 20.5 && G.res.wood >= 25 && window.__QA.kumDay !== G.time.day) {
-    if (G.actions.kumzitz()) { window.__QA.kumDay = G.time.day; out.push('kumzitz'); }
+while (Date.now() - t0 < HARD_STOP_MS) {
+  await page.waitForTimeout(5000);
+  const s = await state();
+
+  // stuck detection (identical position for ~60s real)
+  for (const [i, p] of s.positions.split('|').entries()) {
+    const rec = stuckMap.get(i);
+    if (rec && rec.p === p) { rec.n++; if (rec.n === 12) stuckReports.push(`unit#${i} @${p} day${s.day} units=${s.units}`); }
+    else stuckMap.set(i, { p, n: 0 });
   }
 
-  // --- build queue
-  window.__QA.queue ??= ['tent', 'sheep_pen', 'veg_patch', 'tent', 'kennel', 'tent', 'water_tower', 'tent', 'tent', 'veg_patch', 'synagogue', 'tent', 'tent'];
-  const q = window.__QA.queue;
-  if (q.length && !G.placement && !danger && !G.time.isShabbat) {
-    const type = q[0];
-    // affordability via BALANCE exposed on placement failure is awkward; just try
-    G.actions.startPlacement(type);
-    if (G.placement) {
-      const base = G.basePos ?? { x: 0, z: 0 };
-      let ok = false;
-      outer:
-      for (let r = 5; r < 32; r += 2) {
+  // player brain
+  const act = await page.evaluate(({ towerBuilt, kennelBuilt, tent3, pergBuilt, kumzitzDaysArr }) => {
+    const G = window.__G;
+    const A = G.actions;
+    const done = [];
+    const base = G.basePos ?? { x: 0, z: 0 };
+    const place = (type) => {
+      A.startPlacement(type);
+      for (let r = 5; r < 30; r += 1.5) {
         for (let a = 0; a < 20; a++) {
-          const x = base.x + Math.cos(a / 20 * Math.PI * 2 + r) * r;
-          const z = base.z + Math.sin(a / 20 * Math.PI * 2 + r) * r;
-          G.actions.movePlacement(x, z);
-          if (G.placement?.valid) { G.actions.confirmPlacement(false); ok = true; break outer; }
+          const x = base.x + Math.cos(a / 20 * Math.PI * 2) * r;
+          const z = base.z + Math.sin(a / 20 * Math.PI * 2) * r;
+          A.movePlacement(x, z);
+          if (G.placement?.valid) { A.confirmPlacement(false); return true; }
         }
       }
-      if (ok) { q.shift(); out.push('placed:' + type); }
-      else { G.actions.cancelPlacement(); out.push('noplace:' + type); }
-    } // startPlacement no-op => can't afford yet
+      A.cancelPlacement(); return false;
+    };
+    const settlers = G.units.filter(u => u.kind === 'settler' && u.alive);
+    // bell: ring when hostiles alive or wave landing within 25s; unring otherwise
+    const threat = G.hostiles.some(h => h.alive) || G.director.pendingWaves.some(w => w.atT - G.time.t < 25);
+    if (threat && !G.flags.bell) { A.toggleBell(); done.push('bell-on'); }
+    if (!threat && G.flags.bell) { A.toggleBell(); done.push('bell-off'); }
+    // kumzitz in the evening, once per day, when spirit sags
+    if (!threat && G.time.hour > 18 && G.time.hour < 21 && !kumzitzDaysArr.includes(G.time.day) && G.spirit < 75 && (!A.canKumzitz || A.canKumzitz())) {
+      if (A.kumzitz()) done.push('kumzitz-day' + G.time.day);
+    }
+    // builds by priority once resources allow (max one new site at a time)
+    const has = (t) => G.buildings.some(b => b.typeId === t);
+    const sites = G.buildings.filter(b => b.state === 'site').length;
+    if (sites === 0) {
+      if (!kennelBuilt && has('sheep_pen') && G.res.wood >= 40 && G.res.food >= 15) { if (place('kennel')) done.push('built-kennel'); }
+      else if (!towerBuilt && G.res.wood >= 60 && G.res.stone >= 30 && G.res.shekels >= 50) { if (place('water_tower')) done.push('built-water_tower'); }
+      else if (G.pop.max - G.pop.cur < 1 && G.res.wood >= 25 && G.buildings.filter(b => b.typeId === 'tent').length < 8) { if (place('tent')) done.push('built-tent'); }
+      else if (!pergBuilt && towerBuilt && kennelBuilt && G.res.wood >= 35) { if (place('pergola')) done.push('built-pergola'); }
+    }
+    // buy sheep when affordable & pen exists
+    if (G.res.shekels >= 40 && G.flock.length < 12) { if (A.buySheep()) done.push('buy-sheep'); }
+    // adopt second dog
+    if (G.units.filter(u => u.kind === 'dog').length < 2 && G.res.food >= 25) { if (A.adoptDog()) done.push('adopt-dog'); }
+    // job rebalance: builders <-> farm/stone depending on open sites
+    const constructing = G.buildings.some(b => b.state === 'site');
+    for (const st of settlers) {
+      if (st.job === 'build' && !constructing) { st.setJob(G.res.stone < 40 ? 'stone' : 'farm'); done.push('rejob-' + st.job); }
+      else if ((st.job === 'farm' || st.job === 'stone') && constructing && !settlers.some(x => x.job === 'build')) { st.setJob('build'); done.push('rejob-build'); }
+    }
+    // newcomers with no job -> water or wood
+    for (const st of settlers) {
+      if (!st.job) { st.setJob(G.res.water < 20 ? 'water' : 'wood'); done.push('job-newcomer'); }
+    }
+    if (G.time.speed !== 3 && !G.time.paused) A.setSpeed(3);
+    return done;
+  }, { towerBuilt, kennelBuilt, tent3, pergBuilt, kumzitzDaysArr: [...kumzitzDays] });
+  for (const a of act) {
+    if (a === 'built-water_tower') towerBuilt = true;
+    if (a === 'built-kennel') kennelBuilt = true;
+    if (a === 'built-tent') tent3 = true;
+    if (a === 'built-pergola') pergBuilt = true;
+    if (a.startsWith('kumzitz-day')) kumzitzDays.add(+a.slice(11));
   }
+  if (act.length) console.log(`[act d${s.day} h${s.hour}]`, act.join(','));
 
-  // --- job assignment: desired mix scales with pop
-  const settlers = G.units.filter(u => u.kind === 'settler' && u.alive && !u.fallen);
-  const want = [['shepherd', 1], ['wood', 2], ['water', 1], ['build', 1], ['farm', 1], ['guard', 1], ['wood', 3], ['water', 2], ['farm', 2], ['guard', 2], ['runner', 1]];
-  const count = (j) => settlers.filter(u => u.job === j).length;
-  for (const [job, n] of want) {
-    if (count(job) >= n) continue;
-    const free = settlers.find(u => !u.job || u.job === 'idle');
-    if (!free) break;
-    free.setJob(job);
-    out.push(`job:${free.name}->${job}`);
+  if (s.day !== lastDayLogged) {
+    lastDayLogged = s.day;
+    console.log(`=== DAY ${s.day} ===`, JSON.stringify(s));
+    if ([3, 6, 9, 12].includes(s.day)) await page.screenshot({ path: `${SHOTDIR}/free_day${s.day}.png` });
   }
+  if (s.hostiles) console.log(`[raid d${s.day} h${s.hour}] hostiles=${s.hostiles} pending=${s.pendingWaves} waves=${s.waves} flock=${s.flock} bell=${s.bell}`);
 
-  // --- purchases: keep >=60 shekels reserve until water_tower done, then sheep/dogs
-  const towerDone = G.buildings.some(b => b.typeId === 'water_tower' && b.state === 'done');
-  const reserve = towerDone ? 30 : 110;
-  if (G.res.shekels >= reserve + 25 && G.actions.buySheep()) out.push('sheep+1');
-  if (G.res.shekels >= reserve + 40 && G.actions.adoptDog()) out.push('dog+1');
-  return out;
-});
-
-console.log('=== FREE PLAY START ===');
-console.log(JSON.stringify(await state()));
-
-let lastShotDay = 0;
-const posHistory = new Map(); // name -> {pos, sinceMs}
-let stuckReports = [];
-let finalReason = 'hard-stop';
-
-while (true) {
-  if (Date.now() - t0 > HARD_STOP_MS) { finalReason = 'hard-stop 13.5min'; break; }
-  const acts = await control().catch(e => ['CTRLERR:' + e.message]);
-  await page.waitForTimeout(4000);
-  const s = await state().catch(e => null);
-  if (!s) { logs.push('[HARNESS] state() failed'); continue; }
-  const mm = ((Date.now() - t0) / 60000).toFixed(1);
-  if (acts.length) console.log(`[${mm}m] ACT ${acts.join(' | ')}`);
-  for (const e of s.qa) console.log(`[${mm}m] EV d${e.day} h${e.hour} ${e.ev} ${e.p}`);
-  console.log(`[${mm}m] d${s.day} h${s.hour}${s.shabbat ? ' SHABBAT' : ''} pop=${s.pop} spirit=${s.spirit} flock=${s.flock} res=${JSON.stringify(s.res)} waves=${s.waves} pending=[${s.pending}] hostiles=[${s.hostiles}] bell=${s.bell}`);
-  console.log(`[${mm}m] bld=[${s.buildings}] obj=[${s.objectives}]`);
-
-  // NaN / negative res check
-  for (const [k, v] of Object.entries(s.res)) {
-    if (!Number.isFinite(v)) logs.push(`[GAMEBUG] res.${k} is ${v} at d${s.day}h${s.hour}`);
-    if (v < -0.5) logs.push(`[GAMEBUG] res.${k} negative ${v} at d${s.day}h${s.hour}`);
-  }
-  // stuck detection (same pos & working state for 60s real while having a job)
-  for (const up of s.upos) {
-    const [name, rest] = up.split('@');
-    const prev = posHistory.get(name);
-    if (prev && prev.rest === rest && !rest.includes(':idle') && !rest.includes('sleep')) {
-      if (Date.now() - prev.since > 60000 && !stuckReports.includes(name + rest)) {
-        stuckReports.push(name + rest);
-        console.log(`[${mm}m] STUCK? ${up} unchanged for 60s+`);
-      }
-    } else posHistory.set(name, { rest, since: Date.now() });
-  }
-  if (s.day >= 3 && s.day > lastShotDay && (s.day % 3 === 0)) {
-    lastShotDay = s.day;
-    await page.screenshot({ path: `${SHOTDIR}/free_d${s.day}.png` }).catch(() => {});
-  }
-  if (s.lost) { finalReason = 'LOST'; await page.screenshot({ path: SHOTDIR + '/free_lost.png' }); break; }
-  if (s.won) { finalReason = 'WON'; break; }
-  if (s.day >= 13) { finalReason = 'reached day 13'; break; }
+  const lostText = await page.locator('text=הגבעה נפלה').count();
+  if (s.lost || lostText) { doneReason = 'LOST'; console.log('LOST at', JSON.stringify(s)); await page.screenshot({ path: SHOTDIR + '/free_lost.png' }); break; }
+  if (s.day >= 13) { doneReason = 'reached-day13'; break; }
 }
 
-console.log('=== END:', finalReason, '===');
-console.log(JSON.stringify(await state().catch(() => ({}))));
-await page.screenshot({ path: SHOTDIR + '/free_end.png' }).catch(() => {});
-const loseTxt = await page.locator('text=הגבעה נפלה').count().catch(() => 0);
-console.log('LOSE SCREEN:', loseTxt);
-console.log('=== CONSOLE/PAGE ISSUES (' + logs.length + ') ===');
+const finalS = await state();
+const events = await page.evaluate(() => window.__QA.events);
+console.log('=== FINAL ===', JSON.stringify(finalS));
+console.log('=== EVENTS ===');
+for (const e of events) console.log(`d${e.day} h${e.hour} ${e.name} ${e.info}`);
+console.log('=== STUCK ===', stuckReports.join(' ; ') || 'none');
+console.log('=== DONE:', doneReason, 'realMin:', ((Date.now() - t0) / 60000).toFixed(1));
+console.log('=== CONSOLE/PAGEERROR (' + logs.length + ') ===');
 for (const l of logs.slice(0, 60)) console.log(l);
-console.log('REAL MINUTES:', ((Date.now() - t0) / 60000).toFixed(1));
+await page.screenshot({ path: SHOTDIR + '/free_final.png' });
 await browser.close();

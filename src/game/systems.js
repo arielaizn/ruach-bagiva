@@ -65,6 +65,18 @@ export function initSystemsEvents() {
   // morning recovery
   G.events.on('day-start', () => {
     for (const u of G.units) if (u.fallen) { u.recover(); }
+    // lambing: a fed, penned flock grows
+    const penCap = buildingsOf('sheep_pen').reduce((a, p) => a + (p.def.sheepCap ?? 12), 0);
+    if (G.flock.length >= 4 && G.res.food > 15 && G.flock.length < penCap + 2 && Math.random() < 0.4) {
+      const mom = G.flock[Math.floor(Math.random() * G.flock.length)];
+      if (mom?.alive) {
+        const lamb = new Sheep(mom.pos.x + 1, mom.pos.z + 1, { lamb: true, bornDay: G.time.day });
+        G.stats.sheepBorn++;
+        addRes('spirit', 3);
+        FX.burst('heart', mom.pos);
+        G.events.emit('alert', { type: 'good', textKey: 'ev_lamb_born', vars: { name: lamb.name } });
+      }
+    }
   });
 
   // shabbat spirit lump
@@ -135,7 +147,7 @@ export function initGameActions() {
   G.actions.buySheep = () => {
     const pen = penInfo();
     if (!pen.pen || G.res.shekels < 25) return false;
-    const cap = pen.pen.def.sheepCap ?? 12;
+    const cap = buildingsOf('sheep_pen').reduce((a, p) => a + (p.def.sheepCap ?? 12), 0);
     if (G.flock.length >= cap) return false;
     addRes('shekels', -25);
     new Sheep(pen.x + (Math.random() - 0.5) * 4, pen.z + (Math.random() - 0.5) * 4, { goat: Math.random() < 0.25 });

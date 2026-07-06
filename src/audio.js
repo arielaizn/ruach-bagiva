@@ -792,7 +792,8 @@ function applyAmbience(state) {
   const set = (layer, v) => glide(layer.g.gain, v, F, t);
   const prev = AMB.state;
   AMB.state = state;
-  MUS.night = (state === 'night');
+  // 'danger' layers over the current base — don't flip the music's day/night feel
+  if (state !== 'danger') MUS.night = (state === 'night');
 
   if (state === 'danger') {
     // layered over current base: only raise the drone

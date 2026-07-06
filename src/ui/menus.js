@@ -18,28 +18,39 @@ export class Menus {
     this.onStartLevel = onStartLevel;
     this.onQuitToMenu = onQuitToMenu;
     this.current = null;
+    this.kind = null;
     G.events.on('open-pause', () => { if (G.running) this.showPause(); });
-    G.events.on('close-modal', () => this.close());
+    G.events.on('close-modal', () => {
+      // ESC only dismisses screens that have somewhere sane to go
+      if (this.kind === 'pause') { this.close(); this._restoreSpeed(); }
+      else if (this.kind === 'chapters' || this.kind === 'freesetup') this.showMain();
+      else if (this.kind === 'settings') (this._backFn ? this._backFn() : this.showMain());
+      // main / intro / end screens ignore ESC
+    });
     G.events.on('level-won', ({ level }) => this.showEnd(true, level));
     G.events.on('level-lost', ({ reasonKey }) => this.showEnd(false, G.level, reasonKey));
   }
 
-  _screen(cls = 'screen dimmed') {
+  _restoreSpeed() { G.actions.setSpeed(this._prevSpeed && this._prevSpeed > 0 ? this._prevSpeed : 1); }
+
+  _screen(cls = 'screen dimmed', kind = null) {
     this.close();
     const s = el('div', cls);
     this.root.appendChild(s);
     this.current = s;
+    this.kind = kind;
     G.ui.modalOpen = true;
     return s;
   }
 
   close() {
     if (this.current) { this.current.remove(); this.current = null; }
+    this.kind = null;
     G.ui.modalOpen = false;
   }
 
   showMain() {
-    const s = this._screen('screen');
+    const s = this._screen('screen', 'main');
     s.append(
       el('div', 'menu-title', t('game_title')),
       el('div', 'menu-sub', t('game_subtitle')),
@@ -47,8 +58,10 @@ export class Menus {
     const btns = el('div', 'menu-btns');
     const camp = el('button', 'menu-btn primary', t('btn_campaign'));
     camp.onclick = () => { AudioSys.init(); AudioSys.play('click'); this.showChapters(); };
-    const free = el('button', 'menu-btn', t('btn_freeplay'));
-    free.onclick = () => { AudioSys.init(); AudioSys.play('click'); this.showFreeSetup(); };
+    const freeUnlocked = Save.data.unlockedChapter >= 3 || Save.data.completed.length >= 2;
+    const free = el('button', 'menu-btn', t('btn_freeplay') + (freeUnlocked ? '' : ' 🔒'));
+    if (freeUnlocked) free.onclick = () => { AudioSys.init(); AudioSys.play('click'); this.showFreeSetup(); };
+    else { free.disabled = true; free.title = 'נפתח אחרי פרק 2'; }
     const set = el('button', 'menu-btn', t('btn_settings'));
     set.onclick = () => { AudioSys.play('click'); this.showSettings(() => this.showMain()); };
     btns.append(camp, free, set);
@@ -59,7 +72,7 @@ export class Menus {
   }
 
   showChapters() {
-    const s = this._screen('screen dimmed');
+    const s = this._screen('screen dimmed', 'chapters');
     s.appendChild(el('div', 'menu-title', t('btn_campaign')));
     const grid = el('div', '');
     grid.id = 'chapters-grid';
@@ -85,7 +98,7 @@ export class Menus {
   }
 
   showFreeSetup() {
-    const s = this._screen('screen dimmed');
+    const s = this._screen('screen dimmed', 'freesetup');
     s.appendChild(el('div', 'menu-title', t('free_name')));
     const card = el('div', 'set-card');
     // difficulty
@@ -127,13 +140,13 @@ export class Menus {
   }
 
   showPause() {
-    const wasPaused = G.time.paused;
+    this._prevSpeed = G.time.paused ? 1 : G.time.speed;
     G.actions.setSpeed(0);
-    const s = this._screen('screen dimmed');
+    const s = this._screen('screen dimmed', 'pause');
     s.appendChild(el('div', 'menu-title', t('paused')));
     const btns = el('div', 'menu-btns');
     const res = el('button', 'menu-btn primary', t('btn_resume'));
-    res.onclick = () => { this.close(); G.actions.setSpeed(1); };
+    res.onclick = () => { this.close(); this._restoreSpeed(); };
     const restart = el('button', 'menu-btn', t('btn_restart'));
     restart.onclick = () => { this.close(); this.onStartLevel(G.level, this._lastOpts); };
     const set = el('button', 'menu-btn', t('btn_settings'));
@@ -145,7 +158,8 @@ export class Menus {
   }
 
   showSettings(backFn) {
-    const s = this._screen('screen dimmed');
+    this._backFn = backFn;
+    const s = this._screen('screen dimmed', 'settings');
     s.appendChild(el('div', 'menu-title', t('btn_settings')));
     const card = el('div', 'set-card');
     const st = Save.data.settings;
@@ -186,7 +200,7 @@ export class Menus {
   }
 
   showEnd(won, level, reasonKey) {
-    const s = this._screen('screen dimmed');
+    const s = this._screen('screen dimmed', 'end');
     s.appendChild(el('div', 'menu-title', won ? t('victory_title') : t('defeat_title')));
     const idx = LEVELS.indexOf(level);
     if (won && level.id !== 'free') Save.completeChapter(level.id, idx);

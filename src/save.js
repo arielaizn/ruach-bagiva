@@ -14,6 +14,10 @@ export const Save = {
       this.data = { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY)) ?? {}) };
       this.data.settings = { ...DEFAULTS.settings, ...(this.data.settings ?? {}) };
     } catch { this.data = structuredClone(DEFAULTS); }
+    // shape validation — corrupt saves must never crash menus
+    if (!Array.isArray(this.data.completed)) this.data.completed = [];
+    if (!Number.isFinite(this.data.unlockedChapter) || this.data.unlockedChapter < 1) this.data.unlockedChapter = 1;
+    if (typeof this.data.settings !== 'object' || this.data.settings === null) this.data.settings = structuredClone(DEFAULTS.settings);
     return this.data;
   },
   write() {

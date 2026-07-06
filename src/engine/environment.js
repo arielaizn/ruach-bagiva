@@ -31,6 +31,7 @@ export class Environment {
     const sc = this.sun.shadow.camera;
     sc.near = 10; sc.far = 320;
     sc.left = -110; sc.right = 110; sc.top = 110; sc.bottom = -110;
+    sc.updateProjectionMatrix();
     this.sun.shadow.bias = -0.0008;
     this.sun.shadow.normalBias = 0.6;
     scene.add(this.sun, this.sun.target);

@@ -105,7 +105,7 @@ button { font-family: var(--font-ui); cursor: pointer; border: none; background:
 
 /* ---------------- raid banner ---------------- */
 #raid-banner {
-  position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 90px; left: 50%; transform: translateX(-50%);
   background: rgba(176, 83, 47, .92); color: var(--bone); padding: 8px 22px;
   border-radius: var(--r-md); font-size: 16px; font-weight: 500; box-shadow: var(--shadow-2);
   display: none; align-items: center; gap: 10px; animation: pulse-banner 1s infinite;
@@ -115,7 +115,7 @@ button { font-family: var(--font-ui); cursor: pointer; border: none; background:
 
 /* ---------------- demolition banner ---------------- */
 #demolition-banner {
-  position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 140px; left: 50%; transform: translateX(-50%);
   padding: 10px 16px; display: none; flex-direction: column; gap: 8px; align-items: center;
   border-color: var(--clay); font-size: 15px; min-width: 340px;
 }
@@ -165,7 +165,7 @@ button { font-family: var(--font-ui); cursor: pointer; border: none; background:
 #tooltip .tt-cost { color: var(--earth); font-size: 12px; margin-top: 3px; }
 
 /* ---------------- action buttons (bell etc.) ---------------- */
-#action-bar { position: fixed; bottom: 12px; left: calc(50% + 330px); display: flex; flex-direction: column; gap: 8px; }
+#action-bar { position: fixed; bottom: 240px; right: 12px; display: flex; flex-direction: column; gap: 8px; }
 .big-action {
   width: 58px; height: 58px; border-radius: 50%; font-size: 25px;
   background: var(--panel); border: 2px solid var(--khaki); box-shadow: var(--shadow-2);
@@ -293,5 +293,4 @@ button { font-family: var(--font-ui); cursor: pointer; border: none; background:
   #objectives { width: 200px; }
   #toasts { right: 220px; width: 260px; }
   #chapters-grid { grid-template-columns: repeat(2, 170px); }
-  #action-bar { left: auto; right: 320px; }
 }

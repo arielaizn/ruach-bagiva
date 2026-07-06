@@ -24,7 +24,13 @@ export class Input {
     canvas.addEventListener('pointerdown', (e) => this._onDown(e));
     window.addEventListener('pointermove', (e) => this._onMove(e));
     window.addEventListener('pointerup', (e) => this._onUp(e));
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.rig.zoom(e.deltaY); }, { passive: false });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (this.G.ui?.modalOpen) return;
+      const prevMode = this.rig.mode;
+      this.rig.zoom(e.deltaY);
+      if (this.rig.mode !== prevMode) this.G.events.emit('camera-mode', this.rig.mode);
+    }, { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('mouseleave', () => { this.mouse.inside = false; });
     document.addEventListener('mouseenter', () => { this.mouse.inside = true; });
@@ -224,6 +230,7 @@ export class Input {
   }
 
   update(dt) {
+    if (this.G.ui?.modalOpen) return;
     // keyboard pan
     let dx = 0, dz = 0;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) dz -= 1;

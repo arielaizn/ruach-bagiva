@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { G, addRes, workAllowed, spiritMul } from '../core/state.js';
 import { BALANCE } from './balance.js';
 import { createModel } from './models.js';
+import { disposeModel } from './model-helpers.js';
 import { findPath } from '../engine/path.js';
 import { FX } from '../engine/fx.js';
 import { AudioSys } from '../audio.js';
@@ -42,11 +43,20 @@ export class Entity {
     this.mesh = createModel(modelType, opts);
     this.mesh.userData.entity = this;
     this.mesh.traverse(o => { o.userData.entity = this; });
+    this._storeRestPoses();
     this.snap();
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.faceY;
     G.scene.add(this.mesh);
     return this;
+  }
+
+  // sculpted rest poses (dog tail curl, wolf slink...) must survive animation
+  _storeRestPoses() {
+    const anim = this.mesh.userData.anim;
+    if (!anim) return;
+    for (const k of ['head', 'tail']) if (anim[k]) anim[k].userData.restX = anim[k].rotation.x;
+    for (const arr of [anim.legs, anim.arms]) if (arr) for (const m of arr) m.userData.restX = m.rotation.x;
   }
 
   snap() { this.pos.y = G.terrain.heightAt(this.pos.x, this.pos.z); }
@@ -68,7 +78,9 @@ export class Entity {
     const cells = findPath(G.terrain, s.cx, s.cz, g.cx, g.cz);
     if (!cells) { this.path = null; this.arrived = true; return false; }
     this.path = cells.map(c => G.terrain.cellToWorld(c.cx, c.cz));
-    if (this.path.length) this.path[this.path.length - 1] = { x, z };
+    // only aim at the exact point if its cell is actually walkable —
+    // otherwise keep the remapped nearest-walkable endpoint
+    if (this.path.length && G.terrain.walkable(g.cx, g.cz)) this.path[this.path.length - 1] = { x, z };
     this.pathI = 0;
     this.arrived = false;
     this._stuckT = 0; this._lastD = 1e9;
@@ -129,24 +141,25 @@ export class Entity {
       return;
     }
     this.mesh.rotation.x = 0;
+    const rest = (m) => m.userData.restX ?? 0;
     if (this.moving) {
       this.walkPhase += dt * this.speed * 3.2;
       const sw = Math.sin(this.walkPhase);
-      if (anim.legs) anim.legs.forEach((l, i) => { l.rotation.x = sw * 0.55 * (i % 2 === 0 ? 1 : -1) * (anim.legs.length > 2 && i >= 2 ? -1 : 1); });
-      if (anim.arms) anim.arms.forEach((a, i) => { a.rotation.x = sw * 0.4 * (i % 2 === 0 ? -1 : 1); });
-      if (anim.head) anim.head.rotation.x = Math.abs(sw) * 0.04;
-      if (anim.tail) anim.tail.rotation.x = Math.sin(this.walkPhase * 1.5) * 0.2;
+      if (anim.legs) anim.legs.forEach((l, i) => { l.rotation.x = rest(l) + sw * 0.55 * (i % 2 === 0 ? 1 : -1) * (anim.legs.length > 2 && i >= 2 ? -1 : 1); });
+      if (anim.arms) anim.arms.forEach((a, i) => { a.rotation.x = rest(a) + sw * 0.4 * (i % 2 === 0 ? -1 : 1); });
+      if (anim.head) anim.head.rotation.x = rest(anim.head) + Math.abs(sw) * 0.04;
+      if (anim.tail) anim.tail.rotation.x = rest(anim.tail) + Math.sin(this.walkPhase * 1.5) * 0.2;
     } else {
       this.walkPhase += dt * 1.2;
       const b = Math.sin(this.walkPhase);
-      if (anim.legs) anim.legs.forEach(l => { l.rotation.x = lerp(l.rotation.x, 0, damp(8, dt)); });
-      if (anim.arms) anim.arms.forEach(a => { a.rotation.x = lerp(a.rotation.x, 0, damp(8, dt)); });
-      if (anim.head) anim.head.rotation.x = b * 0.05;
-      if (anim.tail) anim.tail.rotation.x = b * 0.3;
+      if (anim.legs) anim.legs.forEach(l => { l.rotation.x = lerp(l.rotation.x, rest(l), damp(8, dt)); });
+      if (anim.arms) anim.arms.forEach(a => { a.rotation.x = lerp(a.rotation.x, rest(a), damp(8, dt)); });
+      if (anim.head) anim.head.rotation.x = rest(anim.head) + b * 0.05;
+      if (anim.tail) anim.tail.rotation.x = rest(anim.tail) + b * 0.3;
       if (this.working) {
         // hammer/chop gesture
-        if (anim.arms?.[0]) anim.arms[0].rotation.x = -0.6 + Math.sin(this.walkPhase * 6) * 0.6;
-        if (anim.head) anim.head.rotation.x = 0.12;
+        if (anim.arms?.[0]) anim.arms[0].rotation.x = rest(anim.arms[0]) - 0.6 + Math.sin(this.walkPhase * 6) * 0.6;
+        if (anim.head) anim.head.rotation.x = rest(anim.head) + 0.12;
       }
     }
   }
@@ -159,8 +172,12 @@ export class Entity {
     this.attackCd -= dt;
     const range = stats.rangeM ?? 1.6;
     if (!this.inRange(target, range)) {
-      if (this.arrived || !this.goal || dist2d(this.goal.x, this.goal.z, target.pos.x, target.pos.z) > 2.5)
+      // repath on a cooldown so unreachable targets don't trigger an A* flood every tick
+      this._atkRepathT = (this._atkRepathT ?? 0) - dt;
+      if (this._atkRepathT <= 0 && (this.arrived || !this.goal || dist2d(this.goal.x, this.goal.z, target.pos.x, target.pos.z) > 2.5)) {
+        this._atkRepathT = 1.1;
         this.walkTo(target.pos.x, target.pos.z);
+      }
       this.stepMove(dt, this._speedMult());
       return false;
     }
@@ -196,7 +213,7 @@ export class Entity {
   removeSelf() {
     this.alive = false;
     FX.unring(this);
-    if (this.mesh) G.scene.remove(this.mesh);
+    if (this.mesh) { G.scene.remove(this.mesh); disposeModel(this.mesh); }
     G.units = G.units.filter(u => u !== this);
     G.flock = G.flock.filter(u => u !== this);
     G.selection = G.selection.filter(u => u !== this);
@@ -254,6 +271,7 @@ export class Settler extends Entity {
     if (oldM !== newM) {
       const sel = G.selection.includes(this);
       G.scene.remove(this.mesh);
+      disposeModel(this.mesh);
       this.spawnModelSwap(newM);
       if (sel) FX.ring(this);
     }
@@ -264,6 +282,7 @@ export class Settler extends Entity {
     this.mesh = createModel(modelType, { female: this.female, seed: this.id * 17 });
     this.mesh.userData.entity = this;
     this.mesh.traverse(o => { o.userData.entity = this; });
+    this._storeRestPoses();
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.faceY;
     G.scene.add(this.mesh);
@@ -275,6 +294,23 @@ export class Settler extends Entity {
   update(dt) {
     this.working = false;
     if (this.fallen) return; // injured until morning
+
+    // watchdog: a working settler that hasn't moved or worked for ~25s is
+    // state-corrupted — reset him to idle so he re-plans (self-healing)
+    this._wdT = (this._wdT ?? 0) + dt;
+    if (this._wdT > 4) {
+      this._wdT = 0;
+      const moved = this._wdPos ? dist2d(this.pos.x, this.pos.z, this._wdPos.x, this._wdPos.z) : 99;
+      if (moved < 0.4 && !this.working && !this.arrived && this.job !== 'idle' && !G.time.isShabbat) {
+        this._wdStuck = (this._wdStuck ?? 0) + 1;
+        if (this._wdStuck >= 5) {
+          this._wdStuck = 0;
+          this.path = null; this.arrived = true; this.state = 'idle'; this.workTarget = null;
+          const j = this.job; this.job = 'idle'; this.setJob(j); // re-enter the job brain cleanly
+        }
+      } else this._wdStuck = 0;
+      this._wdPos = { x: this.pos.x, z: this.pos.z };
+    }
 
     // 0. explicit chase-off order ("גרש אותו!") — any settler, returns to job after
     if (this.forceTarget) {
@@ -381,23 +417,23 @@ export class Settler extends Entity {
       this.stepMove(dt, this._speedMult());
       return;
     }
-    // work the node
+    // work the node (stop when storage is full — don't waste the map)
     this.working = true;
     this.faceTarget = Math.atan2(node.x - this.pos.x, node.z - this.pos.z);
+    const res = what === 'tree' ? 'wood' : 'stone';
+    if (G.res[res] >= G.caps[res]) { this._capIdle(); this.working = false; return; }
     const rate = (what === 'tree' ? RATES.woodcutter : RATES.stoneGatherer) / 60 * this.workMult();
     const amount = rate * dt;
     if (what === 'tree') {
       node.wood -= amount;
-      const gained = addRes('wood', amount);
+      addRes('wood', amount);
       this._workFx(dt, 'woodChips', node, 'chop');
       if (node.wood <= 0) { G.terrain.depleteTree(node); FX.burst('dust', new THREE.Vector3(node.x, node.y, node.z)); this.workTarget = null; }
-      if (gained <= 0) this._capIdle(dt);
     } else {
       node.stone -= amount;
-      const gained = addRes('stone', amount);
+      addRes('stone', amount);
       this._workFx(dt, 'stoneChips', node, 'mine');
       if (node.stone <= 0) { G.terrain.depleteStone(node); this.workTarget = null; }
-      if (gained <= 0) this._capIdle(dt);
     }
   }
 
@@ -416,10 +452,11 @@ export class Settler extends Entity {
     if (!workAllowed()) { this._restBehavior(dt, true); return; }
     let b = this.workTarget;
     if (!b || !b.alive || b.state !== 'done' || !(b.def.foodPerMin)) {
-      b = nearestBuilding(this.pos.x, this.pos.z, x => x.state === 'done' && x.def.foodPerMin && x.workers.size < (x.def.workerSlots ?? 1));
+      // occupancy derived live: count farmers actually working this plot
+      const slotsFree = (x) => G.units.filter(u => u.alive && u !== this && u.kind === 'settler' && u.job === 'farm' && u.workTarget === x).length < (x.def.workerSlots ?? 1);
+      b = nearestBuilding(this.pos.x, this.pos.z, x => x.state === 'done' && x.def.foodPerMin && slotsFree(x));
       if (!b) { this.job = 'idle'; return; }
       this.workTarget = b;
-      b.workers.add(this.id);
       this.walkTo(b.pos.x + 1.5, b.pos.z);
     }
     const d = dist2d(this.pos.x, this.pos.z, b.pos.x, b.pos.z);
@@ -477,7 +514,7 @@ export class Settler extends Entity {
     if (!site || !site.alive || site.state !== 'site') {
       site = nearestSite(this.pos.x, this.pos.z);
       this.workTarget = site;
-      if (!site) { this.job = 'idle'; return; }
+      if (!site) { const back = this._returnJob; this._returnJob = null; this.setJob(back && back !== 'build' ? back : 'idle'); return; }
     }
     const d = dist2d(this.pos.x, this.pos.z, site.pos.x, site.pos.z);
     const reach = Math.max(site.w, site.h) * CELL * 0.5 + 1.6;
@@ -506,6 +543,8 @@ export class Settler extends Entity {
       this.stateT = 0;
     }
     if (this.state === 'tremp-wait') {
+      // displaced from the junction (shabbat, combat)? restart the trip
+      if (dist2d(this.pos.x, this.pos.z, road.x, road.z) > 7) { this.state = 'idle'; this.stateT = 0; return; }
       this.stateT += dt;
       this.faceTarget = Math.atan2(-this.pos.x, -this.pos.z) + Math.PI; // face the road
       if (this.stateT >= RATES.junctionWaitS) {
@@ -582,10 +621,13 @@ export class Settler extends Entity {
   }
 
   onZeroHp() {
+    if (this.fallen) return; // already down
     // injured, never killed: falls, recovers next morning
     this.fallen = true;
     this.hp = 1;
     this.working = false;
+    this.grazeSpot = null;
+    this.forceTarget = null;
     addRes('spirit', -2);
     G.events.emit('settler-injured', this);
     FX.burst('scare', this.pos);
@@ -614,7 +656,8 @@ export class Sheep extends Entity {
     this._baaT = 5 + Math.random() * 25;
     this.pickY = 0.5;
     this.selectRadius = 0.7;
-    this.spawn(this.type, { lamb: this.lamb, seed: this.id * 31 });
+    this.spawn(this.type, { seed: this.id * 31 });
+    if (this.lamb) { this.mesh.scale.setScalar(0.55); this.bornDay = opts.bornDay ?? null; }
     G.flock.push(this);
   }
 
@@ -643,7 +686,7 @@ export class Sheep extends Entity {
       return;
     }
     // follow shepherd when grazing
-    const shepherd = G.units.find(u => u.alive && u.job === 'shepherd' && u.grazeSpot);
+    const shepherd = G.units.find(u => u.alive && !u.fallen && u.job === 'shepherd' && u.grazeSpot);
     if (shepherd && !G.flags.bell && this.state !== 'return') {
       const d = dist2d(this.pos.x, this.pos.z, shepherd.pos.x, shepherd.pos.z);
       if (d > 6 + (this.id % 4)) {
@@ -678,10 +721,16 @@ export class Sheep extends Entity {
     this.stepMove(dt, 0.45);
     // grazing head-down pose
     const anim = this.mesh?.userData.anim;
-    if (anim?.head && !this.moving) anim.head.rotation.x = 0.5;
+    if (anim?.head && !this.moving) anim.head.rotation.x = (anim.head.userData.restX ?? 0) + 0.5;
+    // lambs grow up after two days
+    if (this.lamb && this.bornDay && G.time.day - this.bornDay >= 2) {
+      this.lamb = false;
+      this.mesh.scale.setScalar(1);
+    }
   }
 
   onZeroHp() {
+    if (!this.alive) return;
     addRes('spirit', BALANCE.units.sheep.spiritOnLoss);
     G.stats.unitsLost++;
     FX.burst('scare', this.pos);
@@ -732,7 +781,7 @@ export class Dog extends Entity {
       return;
     }
     // station: shepherd by day, pen at night
-    const shepherd = G.units.find(u => u.alive && u.job === 'shepherd');
+    const shepherd = G.units.find(u => u.alive && !u.fallen && u.job === 'shepherd');
     const spot = (!G.time.isNight && shepherd) ? shepherd.pos : (() => { const p = penInfo(); return { x: p.x + 4, z: p.z + 4, y: 0 }; })();
     const d = dist2d(this.pos.x, this.pos.z, spot.x, spot.z);
     if (d > 6) {
@@ -750,8 +799,11 @@ export class Dog extends Entity {
   }
 
   onZeroHp() {
+    if (this.fallen) return;
     this.fallen = true;
     this.hp = 1;
+    this.barking = false;
+    this.orderTarget = null;
     G.events.emit('dog-injured', this);
   }
   recover() { this.fallen = false; this.hp = this.maxHp; }

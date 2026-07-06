@@ -51,6 +51,11 @@ export function animPart(parts, opts = {}) {
   return merged(parts, opts);
 }
 
+// free GPU buffers when a model leaves the scene (shared MAT stays alive)
+export function disposeModel(group) {
+  group?.traverse?.((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+}
+
 export const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 export const cyl = (rt, rb, h, seg = 6) => new THREE.CylinderGeometry(rt, rb, h, seg);
 export const cone = (r, h, seg = 6) => new THREE.ConeGeometry(r, h, seg);

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { G, addRes } from '../core/state.js';
 import { BALANCE } from './balance.js';
 import { Entity, nearestHostile } from './units.js';
+import { disposeModel } from './model-helpers.js';
 import { FX } from '../engine/fx.js';
 import { AudioSys } from '../audio.js';
 import { dist2d, clamp } from '../core/util.js';
@@ -70,9 +71,11 @@ export class Hostile extends Entity {
 
   dropSheep() {
     if (!this.stolen) return;
-    this.stolen.stolenBy = null;
-    this.stolen.state = 'return';
-    G.events.emit('sheep-recovered', this.stolen);
+    if (this.stolen.stolenBy === this) {
+      this.stolen.stolenBy = null;
+      this.stolen.state = 'return';
+      G.events.emit('sheep-recovered', this.stolen);
+    }
     this.stolen = null;
   }
 
@@ -121,7 +124,8 @@ export class Hostile extends Entity {
     }
     this._passiveDrains(dt);
     // boredom: a hostile that achieves nothing for ~70s slinks away
-    this._boredT += dt;
+    // (carrying a sheep IS achieving something)
+    if (!this.stolen) this._boredT += dt;
     if (this._boredT > 70) { this.flee(); return; }
     switch (this.type) {
       case 'jackal': case 'wolf': this._predator(dt); break;
@@ -180,6 +184,8 @@ export class Hostile extends Entity {
     return best;
   }
 
+  _validPrey(s) { return s && s.alive && !s.stolenBy; }
+
   _nearestDefender(range = 20) {
     let best = null, bd = range;
     for (const u of G.units) {
@@ -191,7 +197,8 @@ export class Hostile extends Entity {
   }
 
   _predator(dt) {
-    const target = this._acquire(() => this._nearestSheep() || this._nearestDefender(30));
+    // no flock? stalk the camp itself (ch1 teaches chase-off this way)
+    const target = this._acquire(() => this._nearestSheep() || this._nearestDefender(999));
     if (!target) { this.flee(); return; }
     this._chaseAndBite(dt, target);
   }
@@ -236,8 +243,9 @@ export class Hostile extends Entity {
       return;
     }
     this.speed = this.st.speed;
+    if (!this._validPrey(this.target)) this.target = null;
     const target = this._acquire(() => this._nearestSheep());
-    if (!target) { this.flee(); return; }
+    if (!target || !this._validPrey(target)) { this.target = null; if (!G.flock.some(s => s.alive && !s.stolenBy)) this.flee(); return; }
     const d = dist2d(this.pos.x, this.pos.z, target.pos.x, target.pos.z);
     if (d > 1.4) {
       if (this.arrived || (this._chaseT ?? 0) <= 0) { this._chaseT = 0.7; this.walkTo(target.pos.x, target.pos.z); }
@@ -247,6 +255,7 @@ export class Hostile extends Entity {
       // grab her
       this.stolen = target;
       target.stolenBy = this;
+      this._boredT = 0;
       G.events.emit('sheep-stolen', target);
       this.walkTo(this.spawnPoint.x, this.spawnPoint.z);
     }
@@ -284,7 +293,7 @@ export class Hostile extends Entity {
   removeHostile() {
     this.alive = false;
     FX.unring(this);
-    if (this.mesh) G.scene.remove(this.mesh);
+    if (this.mesh) { G.scene.remove(this.mesh); disposeModel(this.mesh); }
     G.hostiles = G.hostiles.filter(h => h !== this);
     G.selection = G.selection.filter(e => e !== this);
     this.wave?.onGone(this);
@@ -328,6 +337,9 @@ export class Wave {
       remaining -= HB[picked].pts;
     }
     if (!comp.length) comp.push(this.palette[0]);
+    // zero-loss bonus tracking: any loss during the wave voids it
+    this._unsubs = ['sheep-lost', 'settler-injured', 'dog-injured', 'structure-destroyed']
+      .map(ev => G.events.on(ev, () => { this.lossless = false; }));
     // spawn spread across dirs at map edge
     const half = MAP_SIZE / 2 - 3;
     comp.forEach((type, i) => {
@@ -358,6 +370,7 @@ export class Wave {
     if (this.done) return;
     if (this.units.every(u => !u.alive)) {
       this.done = true;
+      for (const un of this._unsubs ?? []) un();
       G.stats.raidsRepelled++;
       addRes('spirit', BALANCE.waves.rewards.waveSurvivedSpirit + (this.lossless ? BALANCE.waves.rewards.zeroLossSpirit : 0));
       G.events.emit('raid-end', this);

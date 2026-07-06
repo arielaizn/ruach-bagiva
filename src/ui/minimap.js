@@ -21,7 +21,8 @@ export class Minimap {
     G.events.on('raid-warning', (w) => {
       for (const a of w.angles) this.pings.push({ angle: a, until: G.time.t + w.inS });
     });
-    G.events.on('level-loaded', () => this.bake());
+    G.events.on('level-loaded', () => { this.pings = []; this.bake(); });
+    G.events.on('raid-start', () => { this.pings = []; });
   }
 
   bake() {

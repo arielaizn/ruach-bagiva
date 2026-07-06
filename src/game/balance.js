@@ -13,7 +13,7 @@ export const BALANCE = {
     baseCaps: { wood: 100, stone: 80, food: 60, water: 40, shekels: 99999 },
     ratesPerMin: {
       woodcutter: 9, stoneGatherer: 6,
-      waterPerTrip: 8, donkeyWaterPerTrip: 20, springFill: 3,
+      waterPerTrip: 10, donkeyWaterPerTrip: 20, springFill: 3,
       vegPatch: 5, vineyard: 2.5,
       flockBase: 7, flockBaseSheep: 4, flockPerExtraSheep: 1.5,
       junctionTripShekels: 25, junctionWaitS: 45,

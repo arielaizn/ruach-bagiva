@@ -1,5 +1,5 @@
 // In-game HUD (Hebrew RTL, DOM overlay).
-import { G } from '../core/state.js';
+import { G, canAfford } from '../core/state.js';
 import { BALANCE } from '../game/balance.js';
 import { t } from '../i18n/he.js';
 import { formatClock, clamp } from '../core/util.js';
@@ -156,7 +156,17 @@ export class Hud {
     ev.on('alert', (a) => this.toast({ type: a.type, text: t(a.textKey, a.vars), sticky: a.sticky }));
     ev.on('objective-done', () => { this.renderObjectives(); AudioSys.play('build_done', { vol: 0.5 }); });
     ev.on('objective-progress', () => this.renderObjectives());
-    ev.on('level-loaded', () => { this.renderObjectives(); this.refreshBuildMenu(); });
+    ev.on('level-loaded', () => {
+      this.renderObjectives();
+      this.refreshBuildMenu();
+      // clear transient state from any previous run
+      this.raidBanner.classList.remove('show');
+      this._raidUntil = 0;
+      this.toasts.innerHTML = '';
+      this._renderDemolition();
+      this._hideTip();
+      this.bellBtn.classList.remove('armed');
+    });
     ev.on('res-changed', () => { this._resDirty = true; });
     ev.on('pop-changed', () => { this._resDirty = true; });
     ev.on('selection-changed', () => this.renderSelection());
@@ -221,6 +231,11 @@ export class Hud {
 
   // ---------------- build menu ----------------
   refreshBuildMenu() {
+    this._hideTip();
+    // fall back to the first category that has anything unlocked
+    if (!CATS[this.cat]?.some(id => G.flags.unlocked?.has(id))) {
+      this.cat = Object.keys(CATS).find(c => CATS[c].some(id => G.flags.unlocked?.has(id))) ?? 'cat_base';
+    }
     this.buildTabs.innerHTML = '';
     for (const cat in CATS) {
       const unlockedAny = CATS[cat].some(id => G.flags.unlocked?.has(id));
@@ -254,7 +269,8 @@ export class Hud {
     tt.innerHTML = html;
     tt.style.display = 'block';
     const rect = e.target.closest('button').getBoundingClientRect();
-    tt.style.left = Math.max(8, rect.left + rect.width / 2 - 120) + 'px';
+    const left = Math.min(Math.max(8, rect.left + rect.width / 2 - 120), window.innerWidth - 268);
+    tt.style.left = left + 'px';
     tt.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
     tt.style.top = 'auto';
   }
@@ -412,6 +428,10 @@ export class Hud {
       const settlers = G.units.filter(u => u.kind === 'settler' && u.alive).length;
       this.resEls.pop.querySelector('.v').textContent = settlers;
       this.resEls.pop.querySelector('.cap').textContent = '/' + G.pop.max;
+      // build-button affordability
+      if (this.bldBtns) {
+        for (const { btn, def } of this.bldBtns) btn.classList.toggle('disabled', !canAfford(def.cost));
+      }
       // spirit
       const sp = Math.floor(G.spirit);
       this.spirit.querySelector('.fill').style.width = sp + '%';

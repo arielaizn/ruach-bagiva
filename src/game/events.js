@@ -41,7 +41,7 @@ class PropVehicle {
     const dx = this.pts[i + 1].x - this.pts[i].x, dz = this.pts[i + 1].z - this.pts[i].z;
     this.mesh.rotation.y = Math.atan2(dx, dz) + (this.state === 'out' ? Math.PI : 0);
     const wheels = this.mesh.userData.anim?.wheels;
-    if (wheels) for (const w of wheels) w.rotation.x += 0.2;
+    if (wheels && this.state !== 'parked') for (const w of wheels) w.rotation.x += 0.2;
     const beacon = this.mesh.userData.anim?.beacon;
     if (beacon) beacon.visible = Math.floor(G.time.t * 4) % 2 === 0;
   }
@@ -166,7 +166,10 @@ export class EventDirector {
     d.jeep?.leave();
     d.bus?.leave();
     d.dozer?.leave();
-    for (const s of d.supporters) s.goHome();
+    // the notice comes off the wall in every outcome
+    if (d.building?.orderMesh) { d.building.mesh?.remove(d.building.orderMesh); d.building.orderMesh = null; }
+    // on victory the supporters stay a few days (onDayStart sends them home)
+    if (outcome !== 'frozen') for (const s of d.supporters) s.goHome();
     if (outcome === 'frozen') addRes('spirit', BALANCE.demolition.muster.victorySpirit);
     G.flags.demolitionOutcome = outcome;
     G.events.emit('demolition-resolved', { outcome });
@@ -221,8 +224,15 @@ export class EventDirector {
     // hitchhikers (free settlers when spirit is high and there's housing)
     this.hitchhikerT -= dt;
     if (this.hitchhikerT <= 0) {
-      this.hitchhikerT = BALANCE.recruit.hitchhikerEveryDays * BALANCE.time.dayLength * (0.7 + Math.random() * 0.6);
-      if (G.spirit >= BALANCE.recruit.minSpirit && G.pop.cur < G.pop.max && !G.time.isShabbat && !G.time.isNight) {
+      const blocked = G.time.isShabbat || G.time.isNight || G.spirit < BALANCE.recruit.minSpirit || G.pop.cur >= G.pop.max;
+      if (blocked) {
+        // conditions not met right now — retry soon instead of losing the roll
+        this.hitchhikerT = BALANCE.time.dayLength * 0.25;
+      } else {
+        const speedUp = G.spirit >= 80 ? 0.6 : 1; // high spirit draws people up the hill
+        this.hitchhikerT = BALANCE.recruit.hitchhikerEveryDays * BALANCE.time.dayLength * (0.7 + Math.random() * 0.6) * speedUp;
+      }
+      if (!blocked) {
         const r = G.terrain.roadEntry;
         const s = new Settler(r.x, r.z, {});
         s.state = 'ordered-move';
