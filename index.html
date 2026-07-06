@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>משמר הגבעה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Secular+One&family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⛰️</text></svg>">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- selection rectangle -->
+  <div id="selbox"></div>
+
+  <!-- in-game HUD root -->
+  <div id="hud" class="hidden"></div>
+
+  <!-- menus root (main menu / pause / win / lose) -->
+  <div id="menus"></div>
+
+  <!-- loading screen -->
+  <div id="loading">
+    <div class="load-inner">
+      <div class="load-title">משמר הגבעה</div>
+      <div class="load-sub">רוח בהרים · אחיזה באדמה</div>
+      <div class="load-bar"><div class="load-fill" id="loadfill"></div></div>
+      <div class="load-tip" id="loadtip">טוען את הגבעה...</div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
