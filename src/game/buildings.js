@@ -36,11 +36,29 @@ export class Building {
     this.lightObj = null;
     this.fxHandles = [];
     this.orderNotice = null;      // demolition
+    // only the first caravan is the settlement's core
+    this.isCore = !!def.core && !G.buildings.some(b => b.isCore && b.alive);
     if (typeId === 'sheep_pen') this._occupyPenPerimeter(true);
     else G.terrain.setOccupied(cx, cz, def.w, def.h, true);
+    this._evictOccupants();
     this._spawnSiteMesh();
     G.buildings.push(this);
     G.events.emit('build-placed', this);
+  }
+
+  // anyone standing where the structure now stands gets gently pushed out
+  _evictOccupants() {
+    for (const u of [...G.units, ...G.flock]) {
+      if (!u.alive || !u.pos) continue;
+      const c = G.terrain.worldToCell(u.pos.x, u.pos.z);
+      const inside = c.cx >= this.cx && c.cx < this.cx + this.w && c.cz >= this.cz && c.cz < this.cz + this.h;
+      if (inside && !G.terrain.walkable(c.cx, c.cz)) {
+        const n = G.terrain.findWalkableNear(u.pos.x, u.pos.z, 14);
+        const w = G.terrain.cellToWorld(n.cx, n.cz);
+        u.pos.x = w.x; u.pos.z = w.z;
+        u.path = null; u.arrived = true;
+      }
+    }
   }
 
   // pen: fence ring blocks, interior stays walkable, gate gap on the front (+Z)
@@ -74,7 +92,7 @@ export class Building {
     if (this.progress >= this.def.buildS) this.finish();
   }
 
-  finish() {
+  finish(silent = false) {
     this.state = 'done';
     G.scene.remove(this.mesh);
     this.mesh = createModel(this.typeId);
@@ -91,10 +109,12 @@ export class Building {
     }
     if (this.typeId === 'generator') this._addLight(0xffd98a, 0, BALANCE.buildings.generator.lightR, 2.6);
     if (this.typeId === 'zula') this._addLight(0xffc79a, 0, 6, 2.2);
-    G.stats.buildingsBuilt++;
-    addRes('spirit', BALANCE.spirit.buildingComplete);
-    AudioSys.play('build_done');
-    FX.burst('buildDust', this.pos);
+    if (!silent) {
+      G.stats.buildingsBuilt++;
+      addRes('spirit', BALANCE.spirit.buildingComplete);
+      AudioSys.play('build_done');
+      FX.burst('buildDust', this.pos);
+    }
     // the first structure on the hill gets the flag
     if (!G.flagpole) {
       const c = G.terrain.findWalkableNear(this.pos.x + 3, this.pos.z - 3, 8);
@@ -183,7 +203,7 @@ export class Building {
       addRes('spirit', BALANCE.spirit.structureDestroyed);
       AudioSys.play('demolition', { vol: 0.6 });
       G.events.emit('structure-destroyed', this);
-      if (this.def.core) G.events.emit('core-destroyed', this);
+      if (this.isCore) G.events.emit('core-destroyed', this);
     }
     G.events.emit('buildings-changed', {});
   }
@@ -199,7 +219,7 @@ export class Building {
 export function recomputeCaps() {
   const base = BALANCE.resources.baseCaps;
   const caps = { ...base };
-  let popMax = 0;
+  let popMax = 2; // the founders manage without a roof
   for (const b of G.buildings) {
     if (b.state !== 'done') continue;
     if (b.def.pop) popMax += b.def.pop;

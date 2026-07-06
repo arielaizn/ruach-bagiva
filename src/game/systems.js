@@ -7,6 +7,7 @@ import { AudioSys } from '../audio.js';
 import { dist2d } from '../core/util.js';
 import { findBuilding, buildingsOf } from './buildings.js';
 import { Sheep, Dog } from './units.js';
+import { POOLS } from '../i18n/he.js';
 import { penInfo } from './buildings.js';
 
 const CONS = BALANCE.resources.consumptionPerMin;
@@ -15,9 +16,10 @@ export function updateEconomy(dt) {
   const settlers = G.units.filter(u => u.kind === 'settler' && u.alive);
   const dogs = G.units.filter(u => u.kind === 'dog' && u.alive);
 
-  // consumption
+  // consumption (sharav heat multiplies thirst)
+  const heat = G.flags.sharav ? 1.6 : 1;
   addRes('food', -(settlers.length * CONS.settlerFood + dogs.length * CONS.dogFood) / 60 * dt);
-  addRes('water', -(settlers.length * CONS.settlerWater + G.flock.length * CONS.sheepWater) / 60 * dt);
+  addRes('water', -(settlers.length * CONS.settlerWater + G.flock.length * CONS.sheepWater) * heat / 60 * dt);
 
   // starvation / thirst spirit drain
   if (G.res.food <= 0 || G.res.water <= 0) {
@@ -48,9 +50,10 @@ export function updateEconomy(dt) {
     G.events.emit('kumzitz-end', { bonus });
   }
 
-  // auto-release the bell when quiet
+  // auto-release the bell when quiet (but never during a warned telegraph)
   if (G.flags.bell) {
-    const active = G.hostiles.some(h => h.alive && h.state !== 'flee');
+    const active = G.hostiles.some(h => h.alive && h.state !== 'flee')
+      || G.director?.pendingWaves.some(w => w.warned);
     if (!active) {
       G.flags.bellQuietT = (G.flags.bellQuietT ?? 0) + dt;
       if (G.flags.bellQuietT > 6) { G.flags.bell = false; G.flags.bellQuietT = 0; G.events.emit('bell', false); }
@@ -77,9 +80,9 @@ export function initSystemsEvents() {
     G.flags.motzash = true;
     G.events.emit('alert', { type: 'info', textKey: 'ev_motzash' });
   });
-  G.events.on('day-start', () => { if (!G.time.isShabbat) G.flags.motzash = false; });
+  G.events.on('day-start', () => { if (!G.time.isShabbat) G.flags.motzash = false; G.flags.kumzitzTonight = false; });
 
-  G.events.on('night-start', () => { AudioSys.ambience(G.time.isShabbat ? 'shabbat' : 'night'); FX.setNight?.(true); G.flags.kumzitzTonight = false; });
+  G.events.on('night-start', () => { AudioSys.ambience(G.time.isShabbat ? 'shabbat' : 'night'); FX.setNight?.(true); });
   G.events.on('night-end', () => { AudioSys.ambience(G.time.isShabbat ? 'shabbat' : 'day'); FX.setNight?.(false); });
   G.events.on('raid-start', () => AudioSys.ambience('danger'));
   G.events.on('raid-end', () => { AudioSys.ambience(G.time.isNight ? 'night' : 'day'); G.flags.lastRaidEnd = G.time.t; });
@@ -102,12 +105,19 @@ export function initGameActions() {
     G.events.emit('bell', G.flags.bell);
   };
 
-  G.actions.kumzitz = () => {
+  G.actions.canKumzitz = () => {
     const fire = findBuilding('campfire');
     const evening = G.time.hour >= 17.5 || G.time.hour < 1;
-    if (!fire || !evening || G.flags.kumzitzTonight || G.res.wood < BALANCE.spirit.kumzitzWoodCost || G.time.isShabbat) return false;
+    const cooled = G.time.t - (G.flags.kumzitzAtT ?? -1e9) > BALANCE.time.dayLength * 0.6;
+    return !!fire && evening && cooled && !G.flags.kumzitzTonight && G.res.wood >= BALANCE.spirit.kumzitzWoodCost && !G.time.isShabbat;
+  };
+
+  G.actions.kumzitz = () => {
+    if (!G.actions.canKumzitz()) return false;
+    const fire = findBuilding('campfire');
     addRes('wood', -BALANCE.spirit.kumzitzWoodCost);
     G.flags.kumzitzTonight = true;
+    G.flags.kumzitzAtT = G.time.t;
     G.flags.kumzitzUntil = G.time.t + 18;
     AudioSys.play('kumzitz_start');
     G.events.emit('kumzitz-start', {});
@@ -136,11 +146,14 @@ export function initGameActions() {
 
   G.actions.adoptDog = () => {
     const kennel = findBuilding('kennel');
-    if (!kennel || G.res.food < 15) return false;
+    const cost = BALANCE.buildings.kennel.cost.food ?? 10;
+    if (!kennel || G.res.food < cost) return false;
     const dogs = G.units.filter(u => u.kind === 'dog');
     if (dogs.length >= buildingsOf('kennel').length * kennel.def.dogSlots) return false;
-    addRes('food', -15);
-    new Dog(kennel.pos.x + 2, kennel.pos.z + 2);
+    addRes('food', -cost);
+    const taken = new Set(dogs.map(d => d.name));
+    const name = (POOLS.names_dogs ?? []).find(n => !taken.has(n));
+    new Dog(kennel.pos.x + 2, kennel.pos.z + 2, name ? { name } : {});
     AudioSys.play('dog_bark');
     return true;
   };

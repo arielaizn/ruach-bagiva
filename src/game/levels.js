@@ -36,7 +36,7 @@ export const LEVELS = [
       { day: 2, hour: 7, toast: { textKey: 'tut_water', type: 'info', sticky: true } },
       { day: 2, hour: 12, toast: { textKey: 'tut_wood', type: 'info' } },
       { day: 3, hour: 7, toast: { textKey: 'tut_farm', type: 'info' } },
-      { day: 3, hour: 16.5, wave: { budget: 2, palette: ['jackal'], dirs: ['E'], telegraphS: 45 } },
+      { day: 3, hour: 16.5, wave: { budget: 2, palette: ['jackal'], dirs: ['E'], telegraphS: 18 } },
       { day: 3, hour: 16.5, toast: { textKey: 'tut_jackals', type: 'warn' } },
       { day: 5, hour: 18, toast: { textKey: 'tut_kumzitz', type: 'info', sticky: true } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday', type: 'info' } },
@@ -47,7 +47,7 @@ export const LEVELS = [
     terrain: { seed: 10101, plateauRadius: 26, roughness: 0.75, treeDensity: 0.9, springAngle: 2.0, roadAngle: -0.7, hillHeight: 12 },
     unlocks: ['tent', 'veg_patch', 'campfire', 'sheep_pen', 'kennel', 'fence', 'zula'],
     kit: {
-      res: { wood: 60, stone: 20, food: 30, water: 25, shekels: 40 }, spirit: 55,
+      res: { wood: 60, stone: 20, food: 45, water: 25, shekels: 40 }, spirit: 55,
       settlers: [{ name: 'שיבי', trait: 'diligent' }, { name: 'נריה', trait: 'musical', job: 'shepherd' }, { name: 'עמיחי' }],
       donkey: true, dogs: ['לביא'],
       buildings: [{ type: 'tent', dx: -3, dz: 2 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }],
@@ -64,12 +64,12 @@ export const LEVELS = [
       { day: 1, hour: 9, flockDelivery: 8, toast: { textKey: 'ev_flock_arrived', type: 'good' } },
       { day: 1, hour: 9.5, toast: { textKey: 'tut_shepherd', type: 'info', sticky: true } },
       { day: 1, hour: 11, toast: { textKey: 'tut_pen', type: 'info', sticky: true } },
-      { day: 2, hour: 16.5, wave: { budget: 3, palette: ['jackal'], dirs: ['NE'], telegraphS: 60 } },
+      { day: 2, hour: 16.5, wave: { budget: 3, palette: ['jackal'], dirs: ['NE'], telegraphS: 22 } },
       { day: 3, hour: 9, toast: { textKey: 'tut_bell', type: 'info', sticky: true } },
       { day: 4, hour: 20, toast: { textKey: 'ev_wolves_howl', type: 'warn' } },
       { day: 5, hour: 10, toast: { textKey: 'tut_kennel', type: 'info' } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday_flock', type: 'info' } },
-      { day: 6, hour: 19.5, wave: { budget: 6, palette: ['wolf'], dirs: ['E'], telegraphS: 75 } },
+      { day: 6, hour: 19.5, wave: { budget: 6, palette: ['wolf'], dirs: ['E'], telegraphS: 28 } },
     ],
   },
   {
@@ -93,12 +93,12 @@ export const LEVELS = [
       { day: 1, hour: 8.5, toast: { textKey: 'ch3_caravan_toast', type: 'good' } },
       { day: 1, hour: 10, toast: { textKey: 'tut_water_chain', type: 'info', sticky: true } },
       { day: 2, hour: 9, toast: { textKey: 'tut_donkey_water', type: 'info' } },
-      { day: 3, hour: 16.5, wave: { budget: 5, palette: ['jackal', 'wolf'], dirs: ['NE'], telegraphS: 60 } },
+      { day: 3, hour: 16.5, wave: { budget: 7, palette: ['jackal', 'wolf'], dirs: ['NE'], telegraphS: 22 } },
       { day: 4, hour: 20.5, toast: { textKey: 'ev_thief_scout', type: 'warn' } },
-      { day: 5, hour: 20, wave: { budget: 8, palette: ['thief', 'jackal'], dirs: ['S'], telegraphS: 75 } },
+      { day: 5, hour: 20, wave: { budget: 11, palette: ['thief', 'jackal'], dirs: ['S'], telegraphS: 28 } },
       { day: 5, hour: 19.8, toast: { textKey: 'tut_thieves', type: 'warn' } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday_water', type: 'info' } },
-      { day: 8, hour: 19.5, wave: { budget: 10, palette: ['thief', 'wolf'], dirs: ['S', 'NE'], telegraphS: 75 } },
+      { day: 8, hour: 19.5, wave: { budget: 14, palette: ['thief', 'wolf'], dirs: ['S', 'NE'], telegraphS: 28 } },
     ],
   },
   {
@@ -109,7 +109,7 @@ export const LEVELS = [
       res: { wood: 80, stone: 40, food: 40, water: 35, shekels: 80 }, spirit: 60,
       settlers: [{ name: 'שיבי', trait: 'diligent' }, { name: 'נריה', job: 'shepherd' }, { name: 'עמיחי', job: 'guard' }, { name: 'תהילה', female: true }, { name: 'ידידיה', trait: 'sleepy' }, { name: 'נחמן', trait: 'musical' }],
       donkey: true, dogs: ['לביא', 'סופה'], sheep: 10,
-      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'tent', dx: -6, dz: 3 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }],
+      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'tent', dx: -6, dz: 3 }, { type: 'tent', dx: -8, dz: 0 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }],
     },
     objectives: [
       { id: 'order', type: 'demolition', textKey: 'obj_demolition' },
@@ -121,10 +121,10 @@ export const LEVELS = [
       { day: 1, hour: 18, toast: { textKey: 'ev_jeep_rumor', type: 'warn' } },
       { day: 2, hour: 9, demolition: 'sheep_pen' },
       { day: 2, hour: 9.5, toast: { textKey: 'tut_demolition', type: 'info', sticky: true } },
-      { day: 3, hour: 20, wave: { budget: 6, palette: ['thief'], dirs: ['S'], telegraphS: 75 } },
+      { day: 3, hour: 20, wave: { budget: 8, palette: ['thief'], dirs: ['S'], telegraphS: 28 } },
       { day: 4, hour: 11, toast: { textKey: 'ev_rav_visit', type: 'good' }, grant: { spirit: 10 } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday', type: 'info' } },
-      { day: 8, hour: 12, wave: { budget: 8, palette: ['thief', 'jackal'], dirs: ['S', 'NE'], telegraphS: 75 } },
+      { day: 8, hour: 12, wave: { budget: 11, palette: ['thief', 'jackal'], dirs: ['S', 'NE'], telegraphS: 28 } },
     ],
   },
   {
@@ -135,7 +135,7 @@ export const LEVELS = [
       res: { wood: 90, stone: 50, food: 45, water: 40, shekels: 100 }, spirit: 60,
       settlers: [{ name: 'שיבי' }, { name: 'נריה', job: 'shepherd' }, { name: 'עמיחי', job: 'guard' }, { name: 'תהילה', female: true }, { name: 'ידידיה', trait: 'sleepy' }, { name: 'נחמן', trait: 'musical' }, { name: 'הודיה', female: true }],
       donkey: true, dogs: ['לביא', 'סופה'], sheep: 12,
-      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }],
+      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'tent', dx: -6, dz: 3 }, { type: 'tent', dx: -8, dz: 0 }, { type: 'tent', dx: -3, dz: 6 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }],
     },
     objectives: [
       { id: 'junction', type: 'junction', count: 3, textKey: 'obj_junction3' },
@@ -146,14 +146,14 @@ export const LEVELS = [
     failFlockMin: 4, failCore: true,
     timeline: [
       { day: 1, hour: 9, toast: { textKey: 'tut_junction', type: 'info', sticky: true } },
-      { day: 2, hour: 16.5, wave: { budget: 6, palette: ['boar'], dirs: ['S'], telegraphS: 60 } },
+      { day: 2, hour: 16.5, wave: { budget: 8, palette: ['boar'], dirs: ['S'], telegraphS: 22 } },
       { day: 2, hour: 16.4, toast: { textKey: 'tut_boars', type: 'warn' } },
       { day: 3, hour: 7, weather: 'sharav', toast: { textKey: 'ev_sharav', type: 'warn' } },
-      { day: 4, hour: 19.5, wave: { budget: 10, palette: ['boar', 'wolf'], dirs: ['NE', 'S'], telegraphS: 75 } },
+      { day: 4, hour: 19.5, wave: { budget: 14, palette: ['boar', 'wolf'], dirs: ['NE', 'S'], telegraphS: 28 } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday', type: 'info' } },
-      { day: 8, hour: 20.5, wave: { budget: 10, palette: ['raider'], dirs: ['S'], telegraphS: 90 } },
+      { day: 8, hour: 20.5, wave: { budget: 12, palette: ['raider'], dirs: ['S'], telegraphS: 32 } },
       { day: 8, hour: 20.4, toast: { textKey: 'tut_raiders', type: 'warn' } },
-      { day: 9, hour: 19.5, wave: { budget: 15, palette: ['raider', 'wolf'], dirs: ['S', 'W'], telegraphS: 90 } },
+      { day: 9, hour: 19.5, wave: { budget: 20, palette: ['raider', 'wolf'], dirs: ['S', 'W'], telegraphS: 32 } },
     ],
   },
   {
@@ -164,7 +164,7 @@ export const LEVELS = [
       res: { wood: 100, stone: 60, food: 50, water: 50, shekels: 130 }, spirit: 65,
       settlers: [{ name: 'שיבי' }, { name: 'נריה', job: 'shepherd' }, { name: 'עמיחי', job: 'guard' }, { name: 'תהילה', female: true }, { name: 'ידידיה', trait: 'sleepy', job: 'guard' }, { name: 'נחמן', trait: 'musical' }, { name: 'הודיה', female: true }, { name: 'שילה' }, { name: 'אמונה', female: true }],
       donkey: true, dogs: ['לביא', 'סופה', 'במבה'], sheep: 16,
-      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }, { type: 'container', dx: -8, dz: -5 }],
+      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'caravan', dx: -7, dz: 2 }, { type: 'tent', dx: -3, dz: 6 }, { type: 'tent', dx: -10, dz: -1 }, { type: 'tent', dx: -5, dz: 8 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }, { type: 'container', dx: -8, dz: -5 }],
     },
     objectives: [
       { id: 'towers', type: 'build', building: 'watchtower', count: 2, textKey: 'obj_watchtower2' },
@@ -176,12 +176,12 @@ export const LEVELS = [
     timeline: [
       { day: 1, hour: 8.5, toast: { textKey: 'ch6_council', type: 'info', sticky: true } },
       { day: 1, hour: 9, grant: { wood: 60, stone: 50, shekels: 40 }, toast: { textKey: 'ev_neighbors_help', type: 'good' } },
-      { day: 2, hour: 20, wave: { budget: 10, palette: ['thief', 'wolf'], dirs: ['S'], telegraphS: 75 } },
+      { day: 2, hour: 20, wave: { budget: 14, palette: ['thief', 'wolf'], dirs: ['S'], telegraphS: 28 } },
       { day: 3, hour: 10, toast: { textKey: 'ev_rumor_bignight', type: 'warn' } },
-      { day: 4, hour: 20, wave: { budget: 14, palette: ['raider', 'boar', 'jackal'], dirs: ['S', 'NE'], telegraphS: 90 } },
+      { day: 4, hour: 20, wave: { budget: 18, palette: ['raider', 'boar', 'jackal'], dirs: ['S', 'NE'], telegraphS: 32 } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday_bignight', type: 'info' } },
       { day: 7, hour: 12, toast: { textKey: 'ch6_calm', type: 'info' } },
-      { day: 7, hour: 20.6, wave: { budget: 22, palette: ['raider', 'leader', 'thief', 'wolf'], dirs: ['S', 'NE', 'W'], telegraphS: 100 } },
+      { day: 7, hour: 20.6, wave: { budget: 30, palette: ['raider', 'leader', 'thief', 'wolf'], dirs: ['S', 'NE', 'W'], telegraphS: 38 } },
       { day: 7, hour: 20.5, toast: { textKey: 'ch6_bignight', type: 'bad' } },
     ],
   },
@@ -193,7 +193,7 @@ export const LEVELS = [
       res: { wood: 120, stone: 80, food: 60, water: 60, shekels: 150 }, spirit: 70,
       settlers: [{ name: 'שיבי' }, { name: 'נריה', job: 'shepherd' }, { name: 'עמיחי', job: 'guard' }, { name: 'תהילה', female: true }, { name: 'ידידיה', job: 'guard' }, { name: 'נחמן', trait: 'musical' }, { name: 'הודיה', female: true }, { name: 'שילה' }, { name: 'אמונה', female: true }, { name: 'איתמר' }],
       donkey: true, dogs: ['לביא', 'סופה', 'במבה'], sheep: 20,
-      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }, { type: 'container', dx: -8, dz: -5 }, { type: 'vineyard', dx: 8, dz: 3 }, { type: 'watchtower', dx: 7, dz: -8 }],
+      buildings: [{ type: 'caravan', dx: -4, dz: -2 }, { type: 'caravan', dx: -7, dz: 2 }, { type: 'tent', dx: -3, dz: 6 }, { type: 'tent', dx: -10, dz: -1 }, { type: 'tent', dx: -5, dz: 8 }, { type: 'tent', dx: -12, dz: 3 }, { type: 'campfire', dx: 0, dz: 4 }, { type: 'veg_patch', dx: 4, dz: 2 }, { type: 'sheep_pen', dx: 5, dz: -4 }, { type: 'kennel', dx: 1, dz: -6 }, { type: 'water_tower', dx: -1, dz: -8 }, { type: 'zula', dx: -7, dz: 5 }, { type: 'container', dx: -8, dz: -5 }, { type: 'vineyard', dx: 8, dz: 3 }, { type: 'watchtower', dx: 7, dz: -8 }],
     },
     objectives: [
       { id: 'synagogue', type: 'build', building: 'synagogue', count: 1, textKey: 'obj_synagogue' },
@@ -205,12 +205,12 @@ export const LEVELS = [
     timeline: [
       { day: 1, hour: 8.5, toast: { textKey: 'ch7_open', type: 'info', sticky: true } },
       { day: 2, hour: 9, toast: { textKey: 'ch7_batzir', type: 'info' } },
-      { day: 3, hour: 20, wave: { budget: 12, palette: ['wolf', 'boar'], dirs: ['S', 'NE'], telegraphS: 90 } },
+      { day: 3, hour: 20, wave: { budget: 16, palette: ['wolf', 'boar'], dirs: ['S', 'NE'], telegraphS: 32 } },
       { day: 4, hour: 11, toast: { textKey: 'ev_parents_visit', type: 'good' }, grant: { spirit: 10, food: 20 } },
       { day: 6, hour: 8, toast: { textKey: 'tut_friday', type: 'info' } },
-      { day: 8, hour: 16, wave: { budget: 10, palette: ['boar'], dirs: ['S'], telegraphS: 60 } },
+      { day: 8, hour: 16, wave: { budget: 14, palette: ['boar'], dirs: ['S'], telegraphS: 22 } },
       { day: 10, hour: 10, toast: { textKey: 'ev_rumor_last', type: 'warn' } },
-      { day: 11, hour: 20.6, wave: { budget: 26, palette: ['raider', 'leader', 'thief', 'wolf', 'boar', 'jackal'], dirs: ['S', 'NE', 'W'], telegraphS: 110 } },
+      { day: 11, hour: 20.6, wave: { budget: 36, palette: ['raider', 'leader', 'thief', 'wolf', 'boar', 'jackal'], dirs: ['S', 'NE', 'W'], telegraphS: 42 } },
       { day: 12, hour: 9, weather: 'yoreh', toast: { textKey: 'ev_yoreh', type: 'good' } },
     ],
   },
@@ -223,7 +223,7 @@ export const FREEPLAY = {
     res: { wood: 70, stone: 30, food: 40, water: 30, shekels: 60 }, spirit: 60,
     settlers: [{ name: 'שיבי' }, { name: 'נריה', job: 'shepherd' }, {}, {}],
     donkey: true, dogs: ['לביא'], sheep: 6,
-    buildings: [{ type: 'campfire', dx: 0, dz: 3 }],
+    buildings: [{ type: 'campfire', dx: 0, dz: 3 }, { type: 'tent', dx: -4, dz: 1 }, { type: 'tent', dx: 3, dz: -3 }],
   },
   objectives: [
     { id: 'pop15', type: 'pop', count: 15, textKey: 'obj_free_pop' },
@@ -304,7 +304,7 @@ export class LevelRunner {
         const cz = cc.cz + bdef.dz + jz - Math.floor(def.h / 2);
         if (G.terrain.buildable(cx, cz, def.w, def.h)) {
           const b = new Building(bdef.type, cx, cz);
-          b.progress = def.buildS; b.finish();
+          b.progress = def.buildS; b.finish(true);
           placed = true;
         }
       }

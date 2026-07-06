@@ -209,8 +209,11 @@ export class Hud {
     p.querySelector('#obj-collapse').onclick = () => p.classList.toggle('collapsed');
     for (const o of objs) {
       const row = el('div', 'obj' + (o.done ? ' done' : ''));
-      const prog = o.done ? '' : (o.type === 'res' || o.count > 1 || o.type === 'waves' || o.type === 'junction'
-        ? `<span class="prog">${Math.floor(clamp(o.progress, 0, 1) * 100)}%</span>` : '');
+      // gated end-state objectives (flockEnd/spiritEnd) show a lock, not a %
+      const gated = o.type === 'flockEnd' || o.type === 'spiritEnd';
+      const showPct = !o.done && !gated && (o.type === 'res' || o.count > 1 || o.type === 'waves' || o.type === 'junction');
+      const prog = showPct ? `<span class="prog">${Math.floor(clamp(o.progress, 0, 1) * 100)}%</span>`
+        : (!o.done && gated && o.progress >= 1 ? `<span class="prog">✋</span>` : '');
       row.innerHTML = `<span class="check">${o.done ? '✔' : '◻'}</span><span>${t(o.textKey)}</span>${prog}`;
       p.appendChild(row);
     }
@@ -432,8 +435,7 @@ export class Hud {
     }
 
     // kumzitz availability
-    const evening = G.time.hour >= 17.5 || G.time.hour < 1;
-    const canKum = evening && !G.time.isShabbat && !G.flags.kumzitzTonight && G.res.wood >= BALANCE.spirit.kumzitzWoodCost && G.buildings.some(b => b.typeId === 'campfire' && b.state === 'done');
+    const canKum = G.actions.canKumzitz?.() ?? false;
     this.kumBtn.classList.toggle('ready', canKum);
     this.kumBtn.title = t('btn_kumzitz', { n: BALANCE.spirit.kumzitzWoodCost });
 

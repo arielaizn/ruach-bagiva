@@ -55,7 +55,15 @@ export class Entity {
     const lim = MAP_SIZE / 2 - 2;
     x = clamp(x, -lim, lim); z = clamp(z, -lim, lim);
     this.goal = { x, z };
-    const s = G.terrain.worldToCell(this.pos.x, this.pos.z);
+    // self-unstick: if standing on a blocked cell (e.g. a building finished
+    // under our feet), step out to the nearest walkable cell first
+    let s = G.terrain.worldToCell(this.pos.x, this.pos.z);
+    if (!G.terrain.walkable(s.cx, s.cz)) {
+      const n = G.terrain.findWalkableNear(this.pos.x, this.pos.z, 14);
+      const w = G.terrain.cellToWorld(n.cx, n.cz);
+      this.pos.x = w.x; this.pos.z = w.z;
+      s = n;
+    }
     const g = G.terrain.worldToCell(x, z);
     const cells = findPath(G.terrain, s.cx, s.cz, g.cx, g.cz);
     if (!cells) { this.path = null; this.arrived = true; return false; }

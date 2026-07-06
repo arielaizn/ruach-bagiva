@@ -34,12 +34,12 @@ export const BALANCE = {
     fence:       { cost: { wood: 5 }, buildS: 5, hp: 60, unlockCh: 2, w: 1, h: 1, fence: true },
     pergola:     { cost: { wood: 20 }, buildS: 15, hp: 70, mealSpirit: 1, unlockCh: 2, w: 2, h: 2 },
     synagogue:   { cost: { wood: 30, stone: 15 }, buildS: 30, hp: 160, shabbatLump: 10, unlockCh: 2, w: 2, h: 3 },
-    kennel:      { cost: { wood: 25, food: 15 }, buildS: 20, hp: 90, dogSlots: 2, interceptR: 17, unlockCh: 2, w: 1, h: 2 },
+    kennel:      { cost: { wood: 25, food: 10 }, buildS: 20, hp: 90, dogSlots: 2, interceptR: 17, unlockCh: 2, w: 1, h: 2 },
     zula:        { cost: { wood: 20 }, buildS: 15, hp: 70, unlockCh: 3, w: 2, h: 2 },
     vineyard:    { cost: { wood: 15, water: 10 }, buildS: 15, hp: 70, foodPerMin: 2.5, unlockCh: 5, w: 2, h: 4, crops: true },
     container:   { cost: { wood: 60, stone: 30, shekels: 80 }, buildS: 45, hp: 260, capBonus: { wood: 150, stone: 120, food: 100 }, unlockCh: 4, w: 2, h: 4 },
     water_tower: { cost: { wood: 50, stone: 30, shekels: 50 }, buildS: 45, hp: 200, waterCap: 200, unlockCh: 3, w: 2, h: 2 },
-    watchtower:  { cost: { wood: 50, stone: 50 }, buildS: 45, hp: 170, damage: 9, cooldownS: 1.4, rangeM: 26, courageDrainPerHit: 8, unlockCh: 5, w: 1, h: 1 },
+    watchtower:  { cost: { wood: 50, stone: 50 }, buildS: 45, hp: 170, damage: 7, cooldownS: 1.6, rangeM: 26, courageDrainPerHit: 6, unlockCh: 5, w: 1, h: 1 },
     generator:   { cost: { wood: 20, shekels: 90 }, buildS: 30, hp: 110, lightR: 16, courageDrainPerS: 6, unlockCh: 5, w: 1, h: 2 },
   },
   buildingRules: {
@@ -65,15 +65,15 @@ export const BALANCE = {
   },
   courage: {
     max: 100,
-    dogBarkPerS: 5, slingHit: 15, generatorLightPerS: 6,
-    defenderInSightPerS: 2.5, defenderSightCap: 5, bellCrowdPerS: 5,
+    dogBarkPerS: 4.5, slingHit: 15, generatorLightPerS: 5,
+    defenderInSightPerS: 1.8, defenderSightCap: 5, bellCrowdPerS: 5,
   },
 
   waves: {
-    telegraphS: 60,
+    telegraphS: 25,
     grace: { chapterStartS: 100, postWaveS: 50 },
-    unitCount: { maxPerWave: 14, mapHostileCap: 18 },
-    rewards: { waveSurvivedSpirit: 5, zeroLossSpirit: 3 },
+    unitCount: { maxPerWave: 16, mapHostileCap: 22 },
+    rewards: { waveSurvivedSpirit: 4, zeroLossSpirit: 2 },
     rubberBand: { min: 0.75, max: 1.35 },
     freePlay: {
       nuisanceEveryDays: 3,
@@ -84,7 +84,7 @@ export const BALANCE = {
   },
 
   spirit: {
-    driftPerMin: -0.8,
+    driftPerMin: -1.0,
     shabbat: 30, shabbatSynagogue: 40,
     kumzitz: 10, kumzitzMotzash: 15, kumzitzWoodCost: 10,
     waveSurvived: 5, zeroLoss: 3, buildingComplete: 2, newSettler: 5,

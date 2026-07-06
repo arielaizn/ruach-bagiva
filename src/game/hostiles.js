@@ -254,7 +254,7 @@ export class Hostile extends Entity {
 
   _raider(dt) {
     const target = this._acquire(() =>
-      nearestBuilding(this.pos.x, this.pos.z, b => b.state === 'done' && b.typeId !== 'fence' && !b.def.core)
+      nearestBuilding(this.pos.x, this.pos.z, b => b.state === 'done' && b.typeId !== 'fence' && !b.isCore)
       || nearestBuilding(this.pos.x, this.pos.z, b => b.state === 'done' && b.typeId !== 'fence')
       || this._nearestDefender(40));
     if (!target) { this.flee(); return; }
